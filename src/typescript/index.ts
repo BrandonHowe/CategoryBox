@@ -10,7 +10,7 @@ import {
     Mat23Like
 } from "@thi.ng/matrices";
 import { Vec } from "@thi.ng/vectors";
-import { getMouseTarget, MouseTargetKind } from "./target";
+import { getMouseTarget, MouseTarget, MouseTargetKind } from "./target";
 import { GeometryCache } from "./types/Object";
 
 const W = 300;
@@ -52,7 +52,7 @@ const getEventData = (
     mousePosition: Vec
     transform: Vec
     mouse: Vec
-    target: unknown
+    target: MouseTarget
 } => {
     const mouse = [event.pageX + W, event.pageY + H];
     const transform = getMouseTransform(ctx, cache);
@@ -64,7 +64,6 @@ const getEventData = (
 /**
  * Handle a mouseMove event
  *
- * @param config The config for what we want to return
  * @param ctx The context to re-render to.
  * @param event The event to handle.
  * @param cache The cache to mutate.
@@ -82,25 +81,58 @@ export const onMouseMove = (
 
     cache.objects.map(l => l.shape.attribs!.fill = "#000");
 
-    if (target.type === MouseTargetKind.Object) {
+    if (target.type === MouseTargetKind.Object && target.target !== cache.dragging) {
         target.target!.shape.attribs!.fill = "#999";
+    }
+
+    if (cache.dragging) {
+        cache.dragging.position = mouse;
+        cache.dragging.shape.pos = mouse;
     }
     
     return () => {};
-  
 }
 
+/**
+ * Handle a mouseDown event
+ *
+ * @param ctx The context to re-render to.
+ * @param event The event to handle.
+ * @param cache The cache to mutate.
+ */
 export const onMouseDown = (
     ctx: CanvasRenderingContext2D,
     event: MouseEvent,
     cache: GeometryCache,
 ): () => void => {
-    const { mousePosition } = getEventData(ctx, event, cache);
-    cache.objects.push({
-        position: mousePosition,
-        name: "blah",
-        shape: circle(mousePosition, 10, { fill: "black" })
-    });
+    const { mousePosition, target } = getEventData(ctx, event, cache);
+    if (target.type === MouseTargetKind.Nothing) {
+        cache.objects.push({
+            position: mousePosition,
+            name: "blah",
+            shape: circle(mousePosition, 10, { fill: "black" })
+        });
+    } else if (target.type === MouseTargetKind.Object) {
+        cache.dragging = target.target!;
+    }
+    return () => {};
+};
+
+/**
+ * Handle a mouseUp event
+ *
+ * @param ctx The context to re-render to.
+ * @param event The event to handle.
+ * @param cache The cache to mutate.
+ */
+export const onMouseUp = (
+    ctx: CanvasRenderingContext2D,
+    event: MouseEvent,
+    cache: GeometryCache,
+): () => void => {
+    if (cache.dragging) {
+        delete cache.dragging;
+    }
     return () => {};
 };
 

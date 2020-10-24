@@ -8,7 +8,7 @@ export enum MouseTargetKind {
     Nothing = "Nothing"
 }
 
-interface MouseTarget {
+export interface MouseTarget {
     type: MouseTargetKind;
     target?: ObjectGeometry;
 }

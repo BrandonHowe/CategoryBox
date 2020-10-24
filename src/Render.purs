@@ -15,7 +15,7 @@ import Halogen (Component, getHTMLElementRef, gets, liftEffect, raise)
 import Halogen as H
 import Halogen.Aff as HA
 import Halogen.HTML as HH
-import Halogen.HTML.Events (onMouseDown, onMouseMove, onMouseOver)
+import Halogen.HTML.Events (onMouseDown, onMouseMove, onMouseOver, onMouseUp)
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.VDom.Driver (runUI)
@@ -38,6 +38,8 @@ type NativeGeomEventHandler
 type GeomEventHandler
   = Context2d -> MouseEvent -> GeometryCache -> Effect Unit
 
+foreign import handleMouseUpImpl :: NativeGeomEventHandler
+
 foreign import handleMouseDownImpl :: NativeGeomEventHandler
 
 foreign import handleMouseMoveImpl :: NativeGeomEventHandler
@@ -47,6 +49,9 @@ handleMouseDown = runFn3 handleMouseDownImpl
 
 handleMouseMove :: GeomEventHandler
 handleMouseMove = runFn3 handleMouseMoveImpl
+
+handleMouseUp :: GeomEventHandler
+handleMouseUp = runFn3 handleMouseUpImpl
 
 render :: Effect Unit
 render = HA.runHalogenAff do
@@ -109,7 +114,7 @@ component =
 
   renderState state =
     HH.div_
-      [ HH.canvas $ [ HP.width $ 600, HP.height $ 600, HP.id_ $ "leCanvas", HP.ref canvasRef, onMouseDown $ Just <<< HandleEvent handleMouseDown, onMouseMove $ Just <<< HandleEvent handleMouseMove ]
+      [ HH.canvas $ [ HP.width $ 600, HP.height $ 600, HP.id_ $ "leCanvas", HP.ref canvasRef, onMouseDown $ Just <<< HandleEvent handleMouseDown, onMouseMove $ Just <<< HandleEvent handleMouseMove, onMouseUp $ Just <<< HandleEvent handleMouseUp ]
       ]
 
   handleQuery :: forall a. Query a -> H.HalogenM State Action () Output m (Maybe a)
