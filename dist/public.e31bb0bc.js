@@ -53114,6 +53114,10 @@ exports.onMouseMove = function (ctx, event, cache) {
     target.target.shape.attribs.fill = "#999";
   }
 
+  if (cache.mouseDown && !cache.dragging && target) {
+    cache.dragging = target.target;
+  }
+
   if (cache.dragging) {
     cache.dragging.position = mouse;
     cache.dragging.shape.pos = mouse;
@@ -53144,7 +53148,16 @@ exports.onMouseDown = function (ctx, event, cache) {
       })
     });
   } else if (target.type === target_1.MouseTargetKind.Object) {
-    cache.dragging = target.target;
+    if (cache.morphismStart) {
+      cache.morphisms.push({
+        from: cache.morphismStart,
+        to: target.target.shape,
+        name: "morphism"
+      });
+      delete cache.morphismStart;
+    } else {
+      cache.mouseDown = true;
+    }
   }
 
   return function () {};
@@ -53159,10 +53172,18 @@ exports.onMouseDown = function (ctx, event, cache) {
 
 
 exports.onMouseUp = function (ctx, event, cache) {
+  var target = getEventData(ctx, event, cache).target;
+
+  if (cache.mouseDown && target && !cache.dragging) {
+    cache.morphismStart = target.target.shape;
+    target.target.shape.attribs.fill = "#f00";
+  }
+
   if (cache.dragging) {
     delete cache.dragging;
   }
 
+  cache.mouseDown = false;
   return function () {};
 };
 
@@ -53172,6 +53193,21 @@ exports.render = function (ctx) {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     cache.objects.map(function (l) {
       hiccup_canvas_1.draw(ctx, l.shape);
+    });
+    cache.morphisms.map(function (l) {
+      var xDist = l.to.pos[0] - l.from.pos[0];
+      var yDist = l.to.pos[1] - l.from.pos[1];
+      var angle = (Math.atan2(yDist, xDist) * (180 / Math.PI) + 360) % 360;
+      var modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
+      var modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
+      var newEndpoint = [l.to.pos[0] - modifiedXDist, l.to.pos[1] - modifiedYDist];
+      var arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 20, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 20];
+      var arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 20, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 20];
+      hiccup_canvas_1.draw(ctx, geom_1.line(newEndpoint, arrowheadPoint1));
+      hiccup_canvas_1.draw(ctx, geom_1.line(newEndpoint, arrowheadPoint2));
+      hiccup_canvas_1.draw(ctx, geom_1.line([l.from.pos[0] + modifiedXDist, l.from.pos[1] + modifiedYDist], newEndpoint, {
+        lineCap: "arrow"
+      }));
     });
     return function () {};
   };
@@ -91441,7 +91477,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "51872" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "52136" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

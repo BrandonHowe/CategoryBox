@@ -1,5 +1,5 @@
 import {
-    circle,
+    circle, line,
 } from "@thi.ng/geom";
 import { draw } from "@thi.ng/hiccup-canvas";
 import {
@@ -9,7 +9,7 @@ import {
     transform23,
     Mat23Like
 } from "@thi.ng/matrices";
-import { Vec } from "@thi.ng/vectors";
+import { sin, Vec } from "@thi.ng/vectors";
 import { getMouseTarget, MouseTarget, MouseTargetKind } from "./target";
 import { GeometryCache } from "./types/Object";
 
@@ -85,6 +85,10 @@ export const onMouseMove = (
         target.target!.shape.attribs!.fill = "#999";
     }
 
+    if (cache.mouseDown && !cache.dragging && target) {
+        cache.dragging = target.target!;
+    }
+
     if (cache.dragging) {
         cache.dragging.position = mouse;
         cache.dragging.shape.pos = mouse;
@@ -113,7 +117,16 @@ export const onMouseDown = (
             shape: circle(mousePosition, 10, { fill: "black" })
         });
     } else if (target.type === MouseTargetKind.Object) {
-        cache.dragging = target.target!;
+        if (cache.morphismStart) {
+            cache.morphisms.push({
+                from: cache.morphismStart,
+                to: target.target!.shape,
+                name: "morphism"
+            });
+            delete cache.morphismStart;
+        } else {
+            cache.mouseDown = true;
+        }
     }
     return () => {};
 };
@@ -130,9 +143,15 @@ export const onMouseUp = (
     event: MouseEvent,
     cache: GeometryCache,
 ): () => void => {
+    const { target } = getEventData(ctx, event, cache);
+    if (cache.mouseDown && target && !cache.dragging) {
+        cache.morphismStart = target.target.shape;
+        target.target.shape.attribs!.fill = "#f00";
+    }
     if (cache.dragging) {
         delete cache.dragging;
     }
+    cache.mouseDown = false;
     return () => {};
 };
 
@@ -141,6 +160,19 @@ export const render = (ctx: CanvasRenderingContext2D) => (cache: GeometryCache) 
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     cache.objects.map(l => {
         draw(ctx, l.shape);
+    });
+    cache.morphisms.map(l => {
+        const xDist = l.to.pos[0] - l.from.pos[0];
+        const yDist = l.to.pos[1] - l.from.pos[1];
+        const angle = (Math.atan2(yDist, xDist) * (180 / Math.PI) + 360) % 360;
+        const modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
+        const modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
+        const newEndpoint = [l.to.pos[0] - modifiedXDist, l.to.pos[1] - modifiedYDist];
+        const arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 20, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 20];
+        const arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 20, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 20];
+        draw(ctx, line(newEndpoint, arrowheadPoint1));
+        draw(ctx, line(newEndpoint, arrowheadPoint2));
+        draw(ctx, line([l.from.pos[0] + modifiedXDist, l.from.pos[1] + modifiedYDist], newEndpoint, { lineCap: "arrow" } ));
     });
     return () => {};
 };
