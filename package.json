@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "@thi.ng/geom": "^1.13.0",
+    "@thi.ng/geom-api": "^1.1.1",
+    "@thi.ng/hiccup-canvas": "^1.1.10",
+    "@thi.ng/rstream": "^5.0.6",
+    "@thi.ng/scenegraph": "^0.3.8",
+    "@thi.ng/vectors": "^4.7.0",
+    "src": "^1.1.2"
+  },
+  "devDependencies": {
+    "typescript": "^4.0.3"
+  }
+}
