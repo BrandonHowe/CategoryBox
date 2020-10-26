@@ -5,5 +5,6 @@ export type ForeignAction = { readonly foreignAction: unique symbol }
 
 export interface ForeignActionConfig {
     createObject: Fn2<number, number, ForeignAction>;
+    createMorphism: Fn2<number, number, ForeignAction>;
     nothing: ForeignAction;
 }

@@ -9902,7 +9902,150 @@ module.exports = {
   bitraversableTuple: bitraversableTuple,
   distributiveTuple: distributiveTuple
 };
-},{"../Control.Applicative/index.js":"../output/Control.Applicative/index.js","../Control.Apply/index.js":"../output/Control.Apply/index.js","../Control.Biapplicative/index.js":"../output/Control.Biapplicative/index.js","../Control.Biapply/index.js":"../output/Control.Biapply/index.js","../Control.Bind/index.js":"../output/Control.Bind/index.js","../Control.Comonad/index.js":"../output/Control.Comonad/index.js","../Control.Extend/index.js":"../output/Control.Extend/index.js","../Control.Lazy/index.js":"../output/Control.Lazy/index.js","../Control.Monad/index.js":"../output/Control.Monad/index.js","../Control.Semigroupoid/index.js":"../output/Control.Semigroupoid/index.js","../Data.Bifoldable/index.js":"../output/Data.Bifoldable/index.js","../Data.Bifunctor/index.js":"../output/Data.Bifunctor/index.js","../Data.Bitraversable/index.js":"../output/Data.Bitraversable/index.js","../Data.BooleanAlgebra/index.js":"../output/Data.BooleanAlgebra/index.js","../Data.Bounded/index.js":"../output/Data.Bounded/index.js","../Data.CommutativeRing/index.js":"../output/Data.CommutativeRing/index.js","../Data.Distributive/index.js":"../output/Data.Distributive/index.js","../Data.Eq/index.js":"../output/Data.Eq/index.js","../Data.Foldable/index.js":"../output/Data.Foldable/index.js","../Data.FoldableWithIndex/index.js":"../output/Data.FoldableWithIndex/index.js","../Data.Functor/index.js":"../output/Data.Functor/index.js","../Data.Functor.Invariant/index.js":"../output/Data.Functor.Invariant/index.js","../Data.FunctorWithIndex/index.js":"../output/Data.FunctorWithIndex/index.js","../Data.HeytingAlgebra/index.js":"../output/Data.HeytingAlgebra/index.js","../Data.Maybe/index.js":"../output/Data.Maybe/index.js","../Data.Maybe.First/index.js":"../output/Data.Maybe.First/index.js","../Data.Monoid/index.js":"../output/Data.Monoid/index.js","../Data.Newtype/index.js":"../output/Data.Newtype/index.js","../Data.Ord/index.js":"../output/Data.Ord/index.js","../Data.Ordering/index.js":"../output/Data.Ordering/index.js","../Data.Ring/index.js":"../output/Data.Ring/index.js","../Data.Semigroup/index.js":"../output/Data.Semigroup/index.js","../Data.Semigroup.Foldable/index.js":"../output/Data.Semigroup.Foldable/index.js","../Data.Semigroup.Traversable/index.js":"../output/Data.Semigroup.Traversable/index.js","../Data.Semiring/index.js":"../output/Data.Semiring/index.js","../Data.Show/index.js":"../output/Data.Show/index.js","../Data.Traversable/index.js":"../output/Data.Traversable/index.js","../Data.TraversableWithIndex/index.js":"../output/Data.TraversableWithIndex/index.js","../Data.Unit/index.js":"../output/Data.Unit/index.js","../Type.Equality/index.js":"../output/Type.Equality/index.js"}],"../output/Effect.Console/foreign.js":[function(require,module,exports) {
+},{"../Control.Applicative/index.js":"../output/Control.Applicative/index.js","../Control.Apply/index.js":"../output/Control.Apply/index.js","../Control.Biapplicative/index.js":"../output/Control.Biapplicative/index.js","../Control.Biapply/index.js":"../output/Control.Biapply/index.js","../Control.Bind/index.js":"../output/Control.Bind/index.js","../Control.Comonad/index.js":"../output/Control.Comonad/index.js","../Control.Extend/index.js":"../output/Control.Extend/index.js","../Control.Lazy/index.js":"../output/Control.Lazy/index.js","../Control.Monad/index.js":"../output/Control.Monad/index.js","../Control.Semigroupoid/index.js":"../output/Control.Semigroupoid/index.js","../Data.Bifoldable/index.js":"../output/Data.Bifoldable/index.js","../Data.Bifunctor/index.js":"../output/Data.Bifunctor/index.js","../Data.Bitraversable/index.js":"../output/Data.Bitraversable/index.js","../Data.BooleanAlgebra/index.js":"../output/Data.BooleanAlgebra/index.js","../Data.Bounded/index.js":"../output/Data.Bounded/index.js","../Data.CommutativeRing/index.js":"../output/Data.CommutativeRing/index.js","../Data.Distributive/index.js":"../output/Data.Distributive/index.js","../Data.Eq/index.js":"../output/Data.Eq/index.js","../Data.Foldable/index.js":"../output/Data.Foldable/index.js","../Data.FoldableWithIndex/index.js":"../output/Data.FoldableWithIndex/index.js","../Data.Functor/index.js":"../output/Data.Functor/index.js","../Data.Functor.Invariant/index.js":"../output/Data.Functor.Invariant/index.js","../Data.FunctorWithIndex/index.js":"../output/Data.FunctorWithIndex/index.js","../Data.HeytingAlgebra/index.js":"../output/Data.HeytingAlgebra/index.js","../Data.Maybe/index.js":"../output/Data.Maybe/index.js","../Data.Maybe.First/index.js":"../output/Data.Maybe.First/index.js","../Data.Monoid/index.js":"../output/Data.Monoid/index.js","../Data.Newtype/index.js":"../output/Data.Newtype/index.js","../Data.Ord/index.js":"../output/Data.Ord/index.js","../Data.Ordering/index.js":"../output/Data.Ordering/index.js","../Data.Ring/index.js":"../output/Data.Ring/index.js","../Data.Semigroup/index.js":"../output/Data.Semigroup/index.js","../Data.Semigroup.Foldable/index.js":"../output/Data.Semigroup.Foldable/index.js","../Data.Semigroup.Traversable/index.js":"../output/Data.Semigroup.Traversable/index.js","../Data.Semiring/index.js":"../output/Data.Semiring/index.js","../Data.Show/index.js":"../output/Data.Show/index.js","../Data.Traversable/index.js":"../output/Data.Traversable/index.js","../Data.TraversableWithIndex/index.js":"../output/Data.TraversableWithIndex/index.js","../Data.Unit/index.js":"../output/Data.Unit/index.js","../Type.Equality/index.js":"../output/Type.Equality/index.js"}],"../output/Category.Main/index.js":[function(require,module,exports) {
+"use strict";
+
+var Data_Eq = require("../Data.Eq/index.js");
+
+var Data_Foldable = require("../Data.Foldable/index.js");
+
+var Data_Functor = require("../Data.Functor/index.js");
+
+var Data_Maybe = require("../Data.Maybe/index.js");
+
+var Data_Show = require("../Data.Show/index.js");
+
+var Data_Tuple = require("../Data.Tuple/index.js");
+
+var $$Object = function $$Object(x) {
+  return x;
+};
+
+var Morphism = function Morphism(x) {
+  return x;
+};
+
+var showObject = new Data_Show.Show(function (v) {
+  return v;
+});
+var showMorphism = new Data_Show.Show(function (v) {
+  return Data_Show.show(showObject)(v.value0) + (" -> " + Data_Show.show(showObject)(v.value1));
+});
+var eqObject = new Data_Eq.Eq(function (x) {
+  return function (y) {
+    return x === y;
+  };
+});
+
+var isEndomorphism = function isEndomorphism(v) {
+  return Data_Eq.eq(eqObject)(Data_Tuple.fst(v))(Data_Tuple.snd(v));
+};
+
+var isIdentity = isEndomorphism;
+
+var isMorphismInCategory = function isMorphismInCategory(v) {
+  return function (v1) {
+    return function (v2) {
+      if (v1 instanceof Data_Maybe.Nothing && v2 instanceof Data_Maybe.Nothing) {
+        return true;
+      }
+
+      ;
+
+      if (v1 instanceof Data_Maybe.Just && v2 instanceof Data_Maybe.Nothing) {
+        return Data_Foldable.foldl(Data_Foldable.foldableArray)(function (m) {
+          return function (v3) {
+            return m || Data_Eq.eq(eqObject)(Data_Tuple.fst(v3))(v1.value0);
+          };
+        })(false)(v.morphisms);
+      }
+
+      ;
+
+      if (v1 instanceof Data_Maybe.Nothing && v2 instanceof Data_Maybe.Just) {
+        return Data_Foldable.foldl(Data_Foldable.foldableArray)(function (m) {
+          return function (v3) {
+            return m || Data_Eq.eq(eqObject)(Data_Tuple.snd(v3))(v2.value0);
+          };
+        })(false)(v.morphisms);
+      }
+
+      ;
+
+      if (v1 instanceof Data_Maybe.Just && v2 instanceof Data_Maybe.Just) {
+        return Data_Foldable.foldl(Data_Foldable.foldableArray)(function (m) {
+          return function (v3) {
+            return m || Data_Eq.eq(eqObject)(Data_Tuple.fst(v3))(v1.value0) && Data_Eq.eq(eqObject)(Data_Tuple.snd(v3))(v2.value0);
+          };
+        })(false)(v.morphisms);
+      }
+
+      ;
+      throw new Error("Failed pattern match at Category.Main (line 33, column 1 - line 33, column 76): " + [v.constructor.name, v1.constructor.name, v2.constructor.name]);
+    };
+  };
+};
+
+var isIsomorphism = function isIsomorphism(v) {
+  return function (category) {
+    return isMorphismInCategory(category)(Data_Maybe.Just.create(Data_Tuple.snd(v)))(Data_Maybe.Just.create(Data_Tuple.fst(v)));
+  };
+};
+
+var isAutomorphism = function isAutomorphism(f) {
+  return function (category) {
+    return isIsomorphism(f)(category) && isEndomorphism(f);
+  };
+};
+
+var createMorphism = function createMorphism(a) {
+  return function (b) {
+    return new Data_Tuple.Tuple(a, b);
+  };
+};
+
+var composeMorphisms = function composeMorphisms(v) {
+  return function (v1) {
+    var $37 = Data_Eq.eq(eqObject)(v1.value1)(v.value0);
+
+    if ($37) {
+      return new Data_Maybe.Just(new Data_Tuple.Tuple(v1.value0, v.value1));
+    }
+
+    ;
+    return Data_Maybe.Nothing.value;
+  };
+};
+
+var isRetraction = function isRetraction(f) {
+  return function (g) {
+    return Data_Maybe.fromMaybe(false)(Data_Functor.map(Data_Maybe.functorMaybe)(isIdentity)(composeMorphisms(f)(g)));
+  };
+};
+
+var isSection = function isSection(f) {
+  return function (g) {
+    return Data_Maybe.fromMaybe(false)(Data_Functor.map(Data_Maybe.functorMaybe)(isIdentity)(composeMorphisms(g)(f)));
+  };
+};
+
+module.exports = {
+  "Object": $$Object,
+  Morphism: Morphism,
+  createMorphism: createMorphism,
+  composeMorphisms: composeMorphisms,
+  isMorphismInCategory: isMorphismInCategory,
+  isEndomorphism: isEndomorphism,
+  isIdentity: isIdentity,
+  isSection: isSection,
+  isRetraction: isRetraction,
+  isIsomorphism: isIsomorphism,
+  isAutomorphism: isAutomorphism,
+  eqObject: eqObject,
+  showObject: showObject,
+  showMorphism: showMorphism
+};
+},{"../Data.Eq/index.js":"../output/Data.Eq/index.js","../Data.Foldable/index.js":"../output/Data.Foldable/index.js","../Data.Functor/index.js":"../output/Data.Functor/index.js","../Data.Maybe/index.js":"../output/Data.Maybe/index.js","../Data.Show/index.js":"../output/Data.Show/index.js","../Data.Tuple/index.js":"../output/Data.Tuple/index.js"}],"../output/Effect.Console/foreign.js":[function(require,module,exports) {
 "use strict";
 
 exports.log = function (s) {
@@ -53101,7 +53244,7 @@ var getEventData = function getEventData(ctx, event, cache) {
  */
 
 
-exports.onMouseMove = function (ctx, event, cache) {
+exports.onMouseMove = function (config, ctx, event, cache) {
   var mouse = [event.pageX + W, event.pageY + H];
   var transform = getMouseTransform(ctx, cache);
   var mousePosition = matrices_1.mulV23(null, transform, mouse);
@@ -53123,7 +53266,9 @@ exports.onMouseMove = function (ctx, event, cache) {
     cache.dragging.shape.pos = mouse;
   }
 
-  return function () {};
+  return function () {
+    return config.nothing;
+  };
 };
 /**
  * Handle a mouseDown event
@@ -53134,33 +53279,28 @@ exports.onMouseMove = function (ctx, event, cache) {
  */
 
 
-exports.onMouseDown = function (ctx, event, cache) {
+exports.onMouseDown = function (config, ctx, event, cache) {
   var _a = getEventData(ctx, event, cache),
       mousePosition = _a.mousePosition,
       target = _a.target;
 
   if (target.type === target_1.MouseTargetKind.Nothing) {
-    cache.objects.push({
-      position: mousePosition,
-      name: "blah",
-      shape: geom_1.circle(mousePosition, 10, {
-        fill: "black"
-      })
-    });
+    return function () {
+      return config.createObject(mousePosition[0], mousePosition[1]);
+    };
   } else if (target.type === target_1.MouseTargetKind.Object) {
     if (cache.morphismStart) {
-      cache.morphisms.push({
-        from: cache.morphismStart,
-        to: target.target.shape,
-        name: "morphism"
-      });
-      delete cache.morphismStart;
+      return function () {
+        return config.createMorphism(cache.morphismStart.id, target.target.id);
+      };
     } else {
       cache.mouseDown = true;
     }
   }
 
-  return function () {};
+  return function () {
+    return config.nothing;
+  };
 };
 /**
  * Handle a mouseUp event
@@ -53171,11 +53311,11 @@ exports.onMouseDown = function (ctx, event, cache) {
  */
 
 
-exports.onMouseUp = function (ctx, event, cache) {
+exports.onMouseUp = function (config, ctx, event, cache) {
   var target = getEventData(ctx, event, cache).target;
 
   if (cache.mouseDown && target && !cache.dragging) {
-    cache.morphismStart = target.target.shape;
+    cache.morphismStart = target.target;
     target.target.shape.attribs.fill = "#f00";
   }
 
@@ -53184,7 +53324,9 @@ exports.onMouseUp = function (ctx, event, cache) {
   }
 
   cache.mouseDown = false;
-  return function () {};
+  return function () {
+    return config.nothing;
+  };
 };
 
 exports.render = function (ctx) {
@@ -53195,19 +53337,17 @@ exports.render = function (ctx) {
       hiccup_canvas_1.draw(ctx, l.shape);
     });
     cache.morphisms.map(function (l) {
-      var xDist = l.to.pos[0] - l.from.pos[0];
-      var yDist = l.to.pos[1] - l.from.pos[1];
-      var angle = (Math.atan2(yDist, xDist) * (180 / Math.PI) + 360) % 360;
-      var modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
-      var modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
-      var newEndpoint = [l.to.pos[0] - modifiedXDist, l.to.pos[1] - modifiedYDist];
-      var arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 20, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 20];
-      var arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 20, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 20];
-      hiccup_canvas_1.draw(ctx, geom_1.line(newEndpoint, arrowheadPoint1));
-      hiccup_canvas_1.draw(ctx, geom_1.line(newEndpoint, arrowheadPoint2));
-      hiccup_canvas_1.draw(ctx, geom_1.line([l.from.pos[0] + modifiedXDist, l.from.pos[1] + modifiedYDist], newEndpoint, {
-        lineCap: "arrow"
-      }));
+      if (l.from !== l.to) {
+        var angle = (Math.atan2(l.to.pos[1] - l.from.pos[1], l.to.pos[0] - l.from.pos[0]) * (180 / Math.PI) + 360) % 360;
+        var modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
+        var modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
+        var newEndpoint = [l.to.pos[0] - modifiedXDist, l.to.pos[1] - modifiedYDist];
+        var arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 10];
+        var arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 10];
+        hiccup_canvas_1.draw(ctx, geom_1.line(newEndpoint, arrowheadPoint1));
+        hiccup_canvas_1.draw(ctx, geom_1.line(newEndpoint, arrowheadPoint2));
+        hiccup_canvas_1.draw(ctx, geom_1.line([l.from.pos[0] + modifiedXDist, l.from.pos[1] + modifiedYDist], newEndpoint));
+      }
     });
     return function () {};
   };
@@ -91063,6 +91203,51 @@ var Rerender = function () {
   };
 
   return Rerender;
+}(); // | Stuff the ts side of things can tell us to do
+
+
+var CreateObject = function () {
+  function CreateObject(value0, value1) {
+    this.value0 = value0;
+    this.value1 = value1;
+  }
+
+  ;
+
+  CreateObject.create = function (value0) {
+    return function (value1) {
+      return new CreateObject(value0, value1);
+    };
+  };
+
+  return CreateObject;
+}(); // | Stuff the ts side of things can tell us to do
+
+
+var CreateMorphism = function () {
+  function CreateMorphism(value0, value1) {
+    this.value0 = value0;
+    this.value1 = value1;
+  }
+
+  ;
+
+  CreateMorphism.create = function (value0) {
+    return function (value1) {
+      return new CreateMorphism(value0, value1);
+    };
+  };
+
+  return CreateMorphism;
+}(); // | Stuff the ts side of things can tell us to do
+
+
+var NoAction = function () {
+  function NoAction() {}
+
+  ;
+  NoAction.value = new NoAction();
+  return NoAction;
 }();
 
 var Render = function () {
@@ -91138,12 +91323,12 @@ var withContext = function withContext(dictMonadEffect) {
             }
 
             ;
-            throw new Error("Failed pattern match at Render (line 83, column 7 - line 89, column 23): " + [element.constructor.name]);
+            throw new Error("Failed pattern match at Render (line 89, column 7 - line 95, column 23): " + [element.constructor.name]);
           });
         }
 
         ;
-        throw new Error("Failed pattern match at Render (line 79, column 3 - line 89, column 23): " + [context.constructor.name]);
+        throw new Error("Failed pattern match at Render (line 85, column 3 - line 95, column 23): " + [context.constructor.name]);
       });
     };
   };
@@ -91207,7 +91392,7 @@ var component = function component(dictMonadEffect) {
       }
 
       ;
-      throw new Error("Failed pattern match at Render (line 121, column 17 - line 128, column 20): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Render (line 127, column 17 - line 134, column 20): " + [v.constructor.name]);
     };
 
     var handleAction = function handleAction(v) {
@@ -91238,7 +91423,7 @@ var component = function component(dictMonadEffect) {
       }
 
       ;
-      throw new Error("Failed pattern match at Render (line 131, column 18 - line 142, column 18): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Render (line 137, column 18 - line 148, column 18): " + [v.constructor.name]);
     };
 
     return Halogen_Component.mkComponent({
@@ -91262,6 +91447,9 @@ var render = Halogen_Aff_Util.runHalogenAff(Control_Bind.bind(Effect_Aff.bindAff
   return Halogen_VDom_Driver.runUI(component(Effect_Aff.monadEffectAff)(Effect_Aff_Class.monadAffAff))(Data_Unit.unit)(body);
 }));
 module.exports = {
+  CreateObject: CreateObject,
+  CreateMorphism: CreateMorphism,
+  NoAction: NoAction,
   handleMouseDown: handleMouseDown,
   handleMouseMove: handleMouseMove,
   handleMouseUp: handleMouseUp,
@@ -91282,12 +91470,9 @@ module.exports = {
   getContext: $foreign.getContext
 };
 },{"./foreign.js":"../output/Render/foreign.js","../Control.Applicative/index.js":"../output/Control.Applicative/index.js","../Control.Bind/index.js":"../output/Control.Bind/index.js","../Control.Monad.State.Class/index.js":"../output/Control.Monad.State.Class/index.js","../Data.Function/index.js":"../output/Data.Function/index.js","../Data.Function.Uncurried/index.js":"../output/Data.Function.Uncurried/index.js","../Data.Functor/index.js":"../output/Data.Functor/index.js","../Data.Maybe/index.js":"../output/Data.Maybe/index.js","../Data.Unit/index.js":"../output/Data.Unit/index.js","../Effect.Aff/index.js":"../output/Effect.Aff/index.js","../Effect.Aff.Class/index.js":"../output/Effect.Aff.Class/index.js","../Effect.Class/index.js":"../output/Effect.Class/index.js","../Effect.Unsafe/index.js":"../output/Effect.Unsafe/index.js","../Halogen.Aff.Util/index.js":"../output/Halogen.Aff.Util/index.js","../Halogen.Component/index.js":"../output/Halogen.Component/index.js","../Halogen.HTML.Elements/index.js":"../output/Halogen.HTML.Elements/index.js","../Halogen.HTML.Events/index.js":"../output/Halogen.HTML.Events/index.js","../Halogen.HTML.Properties/index.js":"../output/Halogen.HTML.Properties/index.js","../Halogen.Query/index.js":"../output/Halogen.Query/index.js","../Halogen.Query.HalogenM/index.js":"../output/Halogen.Query.HalogenM/index.js","../Halogen.VDom.Driver/index.js":"../output/Halogen.VDom.Driver/index.js","../Web.HTML.HTMLCanvasElement/index.js":"../output/Web.HTML.HTMLCanvasElement/index.js"}],"../output/Main/index.js":[function(require,module,exports) {
-// Generated by purs version 0.13.8
 "use strict";
 
-var Data_Eq = require("../Data.Eq/index.js");
-
-var Data_Foldable = require("../Data.Foldable/index.js");
+var Category_Main = require("../Category.Main/index.js");
 
 var Data_Functor = require("../Data.Functor/index.js");
 
@@ -91295,159 +91480,31 @@ var Data_Maybe = require("../Data.Maybe/index.js");
 
 var Data_Show = require("../Data.Show/index.js");
 
-var Data_Tuple = require("../Data.Tuple/index.js");
-
 var Effect_Console = require("../Effect.Console/index.js");
 
 var Render = require("../Render/index.js");
 
-var $$Object = function $$Object(x) {
-  return x;
-};
-
-var Morphism = function Morphism(x) {
-  return x;
-};
-
-var showObject = new Data_Show.Show(function (v) {
-  return v;
-});
-var showMorphism = new Data_Show.Show(function (v) {
-  return Data_Show.show(showObject)(v.value0) + (" -> " + Data_Show.show(showObject)(v.value1));
-});
-var eqObject = new Data_Eq.Eq(function (x) {
-  return function (y) {
-    return x === y;
-  };
-});
-
-var isEndomorphism = function isEndomorphism(v) {
-  return Data_Eq.eq(eqObject)(Data_Tuple.fst(v))(Data_Tuple.snd(v));
-};
-
-var isIdentity = isEndomorphism;
-
-var isMorphismInCategory = function isMorphismInCategory(v) {
-  return function (v1) {
-    return function (v2) {
-      if (v1 instanceof Data_Maybe.Nothing && v2 instanceof Data_Maybe.Nothing) {
-        return true;
-      }
-
-      ;
-
-      if (v1 instanceof Data_Maybe.Just && v2 instanceof Data_Maybe.Nothing) {
-        return Data_Foldable.foldl(Data_Foldable.foldableArray)(function (m) {
-          return function (v3) {
-            return m || Data_Eq.eq(eqObject)(Data_Tuple.fst(v3))(v1.value0);
-          };
-        })(false)(v.morphisms);
-      }
-
-      ;
-
-      if (v1 instanceof Data_Maybe.Nothing && v2 instanceof Data_Maybe.Just) {
-        return Data_Foldable.foldl(Data_Foldable.foldableArray)(function (m) {
-          return function (v3) {
-            return m || Data_Eq.eq(eqObject)(Data_Tuple.snd(v3))(v2.value0);
-          };
-        })(false)(v.morphisms);
-      }
-
-      ;
-
-      if (v1 instanceof Data_Maybe.Just && v2 instanceof Data_Maybe.Just) {
-        return Data_Foldable.foldl(Data_Foldable.foldableArray)(function (m) {
-          return function (v3) {
-            return m || Data_Eq.eq(eqObject)(Data_Tuple.fst(v3))(v1.value0) && Data_Eq.eq(eqObject)(Data_Tuple.snd(v3))(v2.value0);
-          };
-        })(false)(v.morphisms);
-      }
-
-      ;
-      throw new Error("Failed pattern match at Main (line 36, column 1 - line 36, column 76): " + [v.constructor.name, v1.constructor.name, v2.constructor.name]);
-    };
-  };
-};
-
-var isIsomorphism = function isIsomorphism(v) {
-  return function (category) {
-    return isMorphismInCategory(category)(Data_Maybe.Just.create(Data_Tuple.snd(v)))(Data_Maybe.Just.create(Data_Tuple.fst(v)));
-  };
-};
-
-var isAutomorphism = function isAutomorphism(f) {
-  return function (category) {
-    return isIsomorphism(f)(category) && isEndomorphism(f);
-  };
-};
-
-var createMorphism = function createMorphism(a) {
-  return function (b) {
-    return new Data_Tuple.Tuple(a, b);
-  };
-};
-
-var composeMorphisms = function composeMorphisms(v) {
-  return function (v1) {
-    var $37 = Data_Eq.eq(eqObject)(v1.value1)(v.value0);
-
-    if ($37) {
-      return new Data_Maybe.Just(new Data_Tuple.Tuple(v1.value0, v.value1));
-    }
-
-    ;
-    return Data_Maybe.Nothing.value;
-  };
-};
-
-var isRetraction = function isRetraction(f) {
-  return function (g) {
-    return Data_Maybe.fromMaybe(false)(Data_Functor.map(Data_Maybe.functorMaybe)(isIdentity)(composeMorphisms(f)(g)));
-  };
-};
-
-var isSection = function isSection(f) {
-  return function (g) {
-    return Data_Maybe.fromMaybe(false)(Data_Functor.map(Data_Maybe.functorMaybe)(isIdentity)(composeMorphisms(g)(f)));
-  };
-};
-
 var main = function () {
-  var myMorphism3 = createMorphism("20")("Blah");
-  var myMorphism2 = createMorphism("5")("bloo");
-  var myMorphism1 = createMorphism("Blah")("5");
+  var myMorphism3 = Category_Main.createMorphism("20")("Blah");
+  var myMorphism2 = Category_Main.createMorphism("5")("bloo");
+  var myMorphism1 = Category_Main.createMorphism("Blah")("5");
   var myCategory = {
     objects: ["Blah", "5", "bloo", "20"],
     morphisms: [myMorphism1, myMorphism2, myMorphism3]
   };
   return function __do() {
-    Effect_Console.logShow(Data_Maybe.showMaybe(showMorphism))(composeMorphisms(myMorphism2)(myMorphism1))();
-    Effect_Console.logShow(Data_Maybe.showMaybe(showMorphism))(composeMorphisms(myMorphism1)(myMorphism3))();
-    Effect_Console.logShow(Data_Show.showBoolean)(isMorphismInCategory(myCategory)(new Data_Maybe.Just("Blah"))(new Data_Maybe.Just("bloo")))();
-    Effect_Console.logShow(Data_Maybe.showMaybe(Data_Show.showBoolean))(Data_Functor.map(Data_Maybe.functorMaybe)(isIdentity)(composeMorphisms(createMorphism("5")("Blah"))(myMorphism1)))();
+    Effect_Console.logShow(Data_Maybe.showMaybe(Category_Main.showMorphism))(Category_Main.composeMorphisms(myMorphism2)(myMorphism1))();
+    Effect_Console.logShow(Data_Maybe.showMaybe(Category_Main.showMorphism))(Category_Main.composeMorphisms(myMorphism1)(myMorphism3))();
+    Effect_Console.logShow(Data_Show.showBoolean)(Category_Main.isMorphismInCategory(myCategory)(new Data_Maybe.Just("Blah"))(new Data_Maybe.Just("bloo")))();
+    Effect_Console.logShow(Data_Maybe.showMaybe(Data_Show.showBoolean))(Data_Functor.map(Data_Maybe.functorMaybe)(Category_Main.isIdentity)(Category_Main.composeMorphisms(Category_Main.createMorphism("5")("Blah"))(myMorphism1)))();
     return Render.render();
   };
 }();
 
 module.exports = {
-  "Object": $$Object,
-  Morphism: Morphism,
-  createMorphism: createMorphism,
-  composeMorphisms: composeMorphisms,
-  isMorphismInCategory: isMorphismInCategory,
-  isEndomorphism: isEndomorphism,
-  isIdentity: isIdentity,
-  isSection: isSection,
-  isRetraction: isRetraction,
-  isIsomorphism: isIsomorphism,
-  isAutomorphism: isAutomorphism,
-  main: main,
-  eqObject: eqObject,
-  showObject: showObject,
-  showMorphism: showMorphism
+  main: main
 };
-},{"../Data.Eq/index.js":"../output/Data.Eq/index.js","../Data.Foldable/index.js":"../output/Data.Foldable/index.js","../Data.Functor/index.js":"../output/Data.Functor/index.js","../Data.Maybe/index.js":"../output/Data.Maybe/index.js","../Data.Show/index.js":"../output/Data.Show/index.js","../Data.Tuple/index.js":"../output/Data.Tuple/index.js","../Effect.Console/index.js":"../output/Effect.Console/index.js","../Render/index.js":"../output/Render/index.js"}],"index.js":[function(require,module,exports) {
+},{"../Category.Main/index.js":"../output/Category.Main/index.js","../Data.Functor/index.js":"../output/Data.Functor/index.js","../Data.Maybe/index.js":"../output/Data.Maybe/index.js","../Data.Show/index.js":"../output/Data.Show/index.js","../Effect.Console/index.js":"../output/Effect.Console/index.js","../Render/index.js":"../output/Render/index.js"}],"index.js":[function(require,module,exports) {
 require("../output/Main/index.js").main();
 },{"../output/Main/index.js":"../output/Main/index.js"}],"../../../../AppData/Roaming/npm/node_modules/parcel/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
@@ -91477,7 +91534,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "52136" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "60508" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

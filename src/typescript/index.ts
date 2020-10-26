@@ -1,4 +1,5 @@
 import {
+    arc,
     circle, line,
 } from "@thi.ng/geom";
 import { draw } from "@thi.ng/hiccup-canvas";
@@ -11,6 +12,7 @@ import {
 } from "@thi.ng/matrices";
 import { sin, Vec } from "@thi.ng/vectors";
 import { getMouseTarget, MouseTarget, MouseTargetKind } from "./target";
+import { ForeignAction, ForeignActionConfig } from "./types/ForeignAction";
 import { GeometryCache } from "./types/Object";
 
 const W = 300;
@@ -69,10 +71,11 @@ const getEventData = (
  * @param cache The cache to mutate.
  */
 export const onMouseMove = (
+    config: ForeignActionConfig,
     ctx: CanvasRenderingContext2D,
     event: MouseEvent,
     cache: GeometryCache
-): () => void => {
+): () => ForeignAction => {
     const mouse = [event.pageX + W, event.pageY + H];
     const transform = getMouseTransform(ctx, cache);
     const mousePosition = mulV23(null, transform, mouse);
@@ -94,7 +97,7 @@ export const onMouseMove = (
         cache.dragging.shape.pos = mouse;
     }
     
-    return () => {};
+    return () => config.nothing;
 }
 
 /**
@@ -105,30 +108,22 @@ export const onMouseMove = (
  * @param cache The cache to mutate.
  */
 export const onMouseDown = (
+    config: ForeignActionConfig,
     ctx: CanvasRenderingContext2D,
     event: MouseEvent,
     cache: GeometryCache,
-): () => void => {
+): () => ForeignAction => {
     const { mousePosition, target } = getEventData(ctx, event, cache);
     if (target.type === MouseTargetKind.Nothing) {
-        cache.objects.push({
-            position: mousePosition,
-            name: "blah",
-            shape: circle(mousePosition, 10, { fill: "black" })
-        });
+        return () => config.createObject(mousePosition[0], mousePosition[1]);
     } else if (target.type === MouseTargetKind.Object) {
         if (cache.morphismStart) {
-            cache.morphisms.push({
-                from: cache.morphismStart,
-                to: target.target!.shape,
-                name: "morphism"
-            });
-            delete cache.morphismStart;
+            return () => config.createMorphism(cache.morphismStart.id, target.target!.id);
         } else {
             cache.mouseDown = true;
         }
     }
-    return () => {};
+    return () => config.nothing;
 };
 
 /**
@@ -139,20 +134,21 @@ export const onMouseDown = (
  * @param cache The cache to mutate.
  */
 export const onMouseUp = (
+    config: ForeignActionConfig,
     ctx: CanvasRenderingContext2D,
     event: MouseEvent,
     cache: GeometryCache,
-): () => void => {
+): () => ForeignAction => {
     const { target } = getEventData(ctx, event, cache);
     if (cache.mouseDown && target && !cache.dragging) {
-        cache.morphismStart = target.target.shape;
+        cache.morphismStart = target.target;
         target.target.shape.attribs!.fill = "#f00";
     }
     if (cache.dragging) {
         delete cache.dragging;
     }
     cache.mouseDown = false;
-    return () => {};
+    return () => config.nothing;
 };
 
 export const render = (ctx: CanvasRenderingContext2D) => (cache: GeometryCache) => {
@@ -162,17 +158,17 @@ export const render = (ctx: CanvasRenderingContext2D) => (cache: GeometryCache) 
         draw(ctx, l.shape);
     });
     cache.morphisms.map(l => {
-        const xDist = l.to.pos[0] - l.from.pos[0];
-        const yDist = l.to.pos[1] - l.from.pos[1];
-        const angle = (Math.atan2(yDist, xDist) * (180 / Math.PI) + 360) % 360;
-        const modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
-        const modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
-        const newEndpoint = [l.to.pos[0] - modifiedXDist, l.to.pos[1] - modifiedYDist];
-        const arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 20, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 20];
-        const arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 20, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 20];
-        draw(ctx, line(newEndpoint, arrowheadPoint1));
-        draw(ctx, line(newEndpoint, arrowheadPoint2));
-        draw(ctx, line([l.from.pos[0] + modifiedXDist, l.from.pos[1] + modifiedYDist], newEndpoint, { lineCap: "arrow" } ));
+        if (l.from !== l.to) {
+            const angle = (Math.atan2(l.to.pos[1] - l.from.pos[1], l.to.pos[0] - l.from.pos[0]) * (180 / Math.PI) + 360) % 360;
+            const modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
+            const modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
+            const newEndpoint = [l.to.pos[0] - modifiedXDist, l.to.pos[1] - modifiedYDist];
+            const arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 10];
+            const arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 10];
+            draw(ctx, line(newEndpoint, arrowheadPoint1));
+            draw(ctx, line(newEndpoint, arrowheadPoint2));
+            draw(ctx, line([l.from.pos[0] + modifiedXDist, l.from.pos[1] + modifiedYDist], newEndpoint));
+        }
     });
     return () => {};
 };

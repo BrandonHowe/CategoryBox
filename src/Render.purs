@@ -23,6 +23,12 @@ import Web.HTML (HTMLCanvasElement)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.UIEvent.MouseEvent (MouseEvent)
 
+-- | Stuff the ts side of things can tell us to do
+data ForeignAction
+  = CreateObject Int Int
+  | CreateMorphism Int Int
+  | NoAction
+
 foreign import data Context2d :: Type
 
 foreign import data GeometryCache :: Type
