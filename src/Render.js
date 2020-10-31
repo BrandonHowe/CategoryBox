@@ -15,4 +15,4 @@ exports.resizeCanvas = (canvas) => () => {
 };
 
 // To be able to get contexts from purescript
-exports.getContext = (canvas) => () => canvas.getContext("2d")
+exports.getContext = (canvas) => () => canvas.getContext("2d");

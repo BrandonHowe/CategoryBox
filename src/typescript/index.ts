@@ -18,6 +18,10 @@ import { GeometryCache } from "./types/Object";
 const W = 300;
 const H = 300;
 
+export const withContext = (canvas: HTMLCanvasElement): CanvasRenderingContext2D => {
+    return canvas.getContext("2d");
+}
+
 export const emptyGeometryCache = () => ({
     objects: [{
         name: "blah",

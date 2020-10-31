@@ -1,33 +1,44 @@
 module Render where
 
 import Prelude
+import Prim
 
-import Control.Monad.State (modify_)
-import Data.Default (def)
+import Category.Main (Category, Object(..), createMorphism)
+import Concur.Core (Widget)
+import Concur.React (HTML)
+import Concur.React.DOM (El)
+import Concur.React.DOM as D
+import Concur.React.Props (onMouseDown, onMouseMove)
+import Concur.React.Props as P
+import Concur.React.Run (runWidgetInDom)
+import Data.Array (singleton, snoc, (!!))
 import Data.Function.Uncurried (Fn3, runFn3)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Traversable (sequence)
+import Data.Tuple (Tuple(..))
 import Effect (Effect)
-import Effect.Aff.Class (class MonadAff)
-import Effect.Class (class MonadEffect)
-import Effect.Console (log)
+import Effect.Class (liftEffect)
 import Effect.Unsafe (unsafePerformEffect)
-import Halogen (Component, getHTMLElementRef, gets, liftEffect, raise)
-import Halogen as H
-import Halogen.Aff as HA
-import Halogen.HTML as HH
-import Halogen.HTML.Events (onMouseDown, onMouseMove, onMouseOver, onMouseUp)
-import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties as HP
-import Halogen.VDom.Driver (runUI)
-import Web.HTML (HTMLCanvasElement)
-import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
-import Web.UIEvent.MouseEvent (MouseEvent)
+import React.Ref (NativeNode, Ref)
+import React.Ref as Ref
+import React.SyntheticEvent (SyntheticMouseEvent)
+import Unsafe.Coerce (unsafeCoerce)
 
 -- | Stuff the ts side of things can tell us to do
 data ForeignAction
-  = CreateObject Int Int
+  = CreateObject Int Int String
   | CreateMorphism Int Int
   | NoAction
+
+handleForeignAction :: Category -> GeometryState -> ForeignAction -> Tuple Category GeometryState
+handleForeignAction category geom action = case action of
+  CreateObject posX posY name -> Tuple (category { objects = snoc category.objects (Object name) }) geom
+  CreateMorphism idx1 idx2 -> 
+    let obj1 = category.objects !! idx1
+        obj2 = category.objects !! idx2
+        newMorphism = createMorphism <$> obj1 <*> obj2
+    in Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) geom
+  NoAction -> Tuple category geom
 
 foreign import data Context2d :: Type
 
@@ -39,10 +50,10 @@ foreign import renderCanvas :: Context2d -> GeometryCache -> Effect Unit
 
 -- | Type of event handlers for the Scene component.
 type NativeGeomEventHandler
-  = Fn3 Context2d MouseEvent GeometryCache (Effect Unit)
+  = Fn3 Context2d SyntheticMouseEvent GeometryCache (Effect Unit)
 
 type GeomEventHandler
-  = Context2d -> MouseEvent -> GeometryCache -> Effect Unit
+  = Context2d -> SyntheticMouseEvent -> GeometryCache -> Effect Unit
 
 foreign import handleMouseUpImpl :: NativeGeomEventHandler
 
@@ -60,89 +71,69 @@ handleMouseUp :: GeomEventHandler
 handleMouseUp = runFn3 handleMouseUpImpl
 
 render :: Effect Unit
-render = HA.runHalogenAff do
-  body <- HA.awaitBody
-  runUI component unit body
+render = runWidgetInDom "component" $ component $ { context: Nothing, geometryCache: unsafePerformEffect emptyGeometryCache }
 
-canvasRef :: H.RefLabel
-canvasRef = H.RefLabel "canvas"
+foreign import resizeCanvas :: El -> Effect Unit
 
--- Halogen M which keeps track of a canvas
-type CanvasHalogenM r a s o m a'
-  = H.HalogenM { | ( context :: Maybe Context2d | r ) } a s o m a'
-
-foreign import resizeCanvas :: HTMLCanvasElement -> Effect Unit
-
-foreign import getContext :: HTMLCanvasElement -> Effect Context2d
+foreign import getContext :: El -> Effect Context2d
 
 -- | Run a computation (inside a halogen component) which requires access to a canvas rendering context.
-withContext ::
-  forall r a s o m.
-  MonadEffect m =>
-  H.RefLabel -> (Context2d -> CanvasHalogenM r a s o m Unit) -> CanvasHalogenM r a s o m Unit
-withContext ref continue = do
-  context <- gets _.context
-  case context of
-    Just ctx -> continue ctx
-    Nothing -> do
-      element <- (_ >>= HTMLCanvasElement.fromHTMLElement) <$> getHTMLElementRef ref
-      case element of
-        Nothing -> pure unit
-        Just canvas -> do
-          liftEffect $ resizeCanvas canvas
-          ctx <- liftEffect $ getContext canvas
-          modify_ _ { context = Just ctx }
-          continue ctx
+withContext :: Ref NativeNode -> (Context2d -> Effect Unit) -> Effect Unit
+withContext ref comp = do
+  matchingRef <- liftEffect $ Ref.getCurrentRef ref
+  case matchingRef of
+    Nothing -> pure unit
+    Just element -> do
+      context <- getContext (unsafeCoerce element).context
+      comp context
 
-type State =
+type GeometryState =
   { context :: Maybe Context2d
   , geometryCache :: GeometryCache
   }
 
 data Query a
-  = LoadScene GeometryCache a
-  | Rerender a
+  = LoadScene GeometryState (Ref NativeNode) a
+  | Rerender (Ref NativeNode) a
 
-data Action = Render | HandleEvent GeomEventHandler MouseEvent
+data Action = Render (Ref NativeNode) | HandleEvent GeomEventHandler SyntheticMouseEvent (Ref NativeNode)
 
 type Input = Unit
 
 type Output = Unit
 
-component :: forall m. MonadEffect m => MonadAff m => Component HH.HTML Query Input Output m
-component =
-  H.mkComponent
-    { initialState: const { context: Nothing, geometryCache: unsafePerformEffect emptyGeometryCache }
-    , render: renderState
-    , eval: H.mkEval $ H.defaultEval { handleAction = handleAction }
-    }
+component :: GeometryState -> Widget HTML Unit
+component st = do
+  (canvasRef :: Ref.Ref _) <- liftEffect Ref.createNodeRef
+  event <- D.div
+    [ (\event -> HandleEvent handleMouseDown event canvasRef) <$> onMouseDown
+    , (\event -> HandleEvent handleMouseMove event canvasRef) <$> onMouseMove
+    ]
+    [ D.canvas
+      [ P.width $ "600px"
+      , P.height $ "600px"
+      , P._id $ "leCanvas"
+      , P.ref (Ref.fromRef canvasRef)
+      ] []
+    ]
+
+  liftEffect $ handleAction st event
+
   where
 
-  renderState state =
-    HH.div_
-      [ HH.canvas $ [ HP.width $ 600, HP.height $ 600, HP.id_ $ "leCanvas", HP.ref canvasRef, onMouseDown $ Just <<< HandleEvent handleMouseDown, onMouseMove $ Just <<< HandleEvent handleMouseMove, onMouseUp $ Just <<< HandleEvent handleMouseUp ]
-      ]
+  handleQuery :: forall a. Query a -> GeometryState
+  handleQuery query = case query of
+    LoadScene newState ref a ->
+      let updatedState = st { context = newState.context, geometryCache = newState.geometryCache }
+      in const updatedState (handleAction updatedState (Render ref))
+    Rerender ref a -> const st $ handleAction st $ Render ref
 
-  handleQuery :: forall a. Query a -> H.HalogenM State Action () Output m (Maybe a)
-  handleQuery = case _ of
-    LoadScene cache a -> do
-      modify_ _ { geometryCache = cache }
-      handleAction Render
-      pure $ Just a
-    Rerender a -> do
-      handleAction Render
-      pure $ Just a
+  handleAction :: GeometryState -> Action -> Effect Unit
+  handleAction state action = case action of
+    Render ref ->
+      withContext ref (\ctx -> renderCanvas ctx state.geometryCache)
 
-  handleAction :: Action -> H.HalogenM State Action () Output m Unit
-  handleAction = case _ of
-    Render ->
-      withContext canvasRef \ctx -> do
-        cache <- gets _.geometryCache
-        liftEffect $ renderCanvas ctx cache
-
-    HandleEvent handler event ->
-      withContext canvasRef \ctx -> do
-        cache <- gets _.geometryCache
-        action <- liftEffect $ handler ctx event cache
-        _ <- handleQuery $ Rerender unit
-        pure unit
+    HandleEvent handler event ref ->
+      withContext ref $ \ctx -> do
+        _ <- handler ctx event state.geometryCache
+        pure $ const unit $ handleQuery $ Rerender ref unit
