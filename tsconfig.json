@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "moduleResolution": "Node",
+    "module": "ESNext",
+    "target": "ES2019",
+    "lib": ["DOM", "DOM.Iterable", "ESNext.Array", "ESNext"],
+    "downlevelIteration": true,
+    "strictNullChecks": true,
+    "strictBindCallApply": true,
+    "esModuleInterop": true,
+    "importHelpers": true,
+  },
+  "include": ["src/typescript", "public"],
+  "exclude": ["node_modules"]
+}
