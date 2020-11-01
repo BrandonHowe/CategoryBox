@@ -1,4 +1,8 @@
 {
+  "name": "CategoryBox",
+  "scripts": {
+    "dev": "parcel public/index.html --open"
+  },
   "dependencies": {
     "@thi.ng/geom": "^1.13.0",
     "@thi.ng/geom-api": "^1.1.1",
@@ -6,9 +10,12 @@
     "@thi.ng/rstream": "^5.0.6",
     "@thi.ng/scenegraph": "^0.3.8",
     "@thi.ng/vectors": "^4.7.0",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1",
     "src": "^1.1.2"
   },
   "devDependencies": {
+    "parcel": "^1.12.4",
     "typescript": "^4.0.3"
   }
 }

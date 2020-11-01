@@ -6,7 +6,7 @@ import Prim
 import Category.Main (Category, Object(..), createMorphism)
 import Concur.Core (Widget)
 import Concur.React (HTML)
-import Concur.React.DOM (El)
+import Concur.React.DOM (El, text, button')
 import Concur.React.DOM as D
 import Concur.React.Props (onMouseDown, onMouseMove)
 import Concur.React.Props as P
@@ -71,7 +71,8 @@ handleMouseUp :: GeomEventHandler
 handleMouseUp = runFn3 handleMouseUpImpl
 
 render :: Effect Unit
-render = runWidgetInDom "component" $ component $ { context: Nothing, geometryCache: unsafePerformEffect emptyGeometryCache }
+-- render = runWidgetInDom "component" $ component $ { context: Nothing, geometryCache: unsafePerformEffect emptyGeometryCache }
+render = runWidgetInDom "bloo" $ (button' [text "Hello Sailor!"] :: forall a. Widget HTML a)
 
 foreign import resizeCanvas :: El -> Effect Unit
 
