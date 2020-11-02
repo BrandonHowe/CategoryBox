@@ -72,17 +72,11 @@ handleMouseUp :: GeomEventHandler
 handleMouseUp = runFn3 handleMouseUpImpl
 
 render :: Effect Unit
--- render = runWidgetInDom "component" $ component $ { context: Nothing, geometryCache: unsafePerformEffect emptyGeometryCache }
-render = do
-  logShow "This ran!"
-  runWidgetInDom "bloo" $ (div'
-  [ button' [text "Ahoy Port!"]
-  , button' [text "Ahoy Starboard!"]
-  ] :: forall a. Widget HTML a)
+render = runWidgetInDom "app" $ component $ { context: Nothing, geometryCache: unsafePerformEffect emptyGeometryCache }
 
 foreign import resizeCanvas :: El -> Effect Unit
 
-foreign import getContext :: El -> Effect Context2d
+foreign import getContext :: forall a. Widget HTML a -> Effect Context2d
 
 -- | Run a computation (inside a halogen component) which requires access to a canvas rendering context.
 withContext :: Ref NativeNode -> (Context2d -> Effect Unit) -> Effect Unit
@@ -91,7 +85,8 @@ withContext ref comp = do
   case matchingRef of
     Nothing -> pure unit
     Just element -> do
-      context <- getContext (unsafeCoerce element).context
+      logShow "go there"
+      context <- getContext (unsafeCoerce element)
       comp context
 
 type GeometryState =
