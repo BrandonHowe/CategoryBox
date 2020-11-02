@@ -32,6 +32,7 @@ const getMouseTransform = (
     ctx: CanvasRenderingContext2D,
     cache: GeometryCache
 ) => {
+    console.log(ctx);
     const bounds = ctx.canvas.getBoundingClientRect();
 
     const transform = transform23(

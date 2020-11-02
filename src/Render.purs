@@ -6,13 +6,14 @@ import Prim
 import Category.Main (Category, Object(..), createMorphism)
 import Concur.Core (Widget)
 import Concur.React (HTML)
-import Concur.React.DOM (El, text, div', button')
+import Concur.React.DOM (El)
 import Concur.React.DOM as D
 import Concur.React.Props (onMouseDown, onMouseMove)
 import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
 import Data.Array (singleton, snoc, (!!))
-import Data.Function.Uncurried (Fn3, runFn3)
+import Data.Default (class Default, def)
+import Data.Function.Uncurried (Fn2, Fn3, Fn4, runFn4, mkFn3, mkFn2)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
@@ -30,6 +31,22 @@ data ForeignAction
   = CreateObject Int Int String
   | CreateMorphism Int Int
   | NoAction
+
+newtype ForeignActionConfig
+  = ForeignActionConfig
+  { createObject :: Fn3 Int Int String ForeignAction
+  , createMorphism :: Fn2 Int Int ForeignAction
+  , nothing :: ForeignAction
+  }
+
+
+instance defaultForeignActionConfig :: Default ForeignActionConfig where
+  def =
+    ForeignActionConfig
+      { createObject: mkFn3 CreateObject
+      , createMorphism: mkFn2 CreateMorphism
+      , nothing: NoAction
+      }
 
 handleForeignAction :: Category -> GeometryState -> ForeignAction -> Tuple Category GeometryState
 handleForeignAction category geom action = case action of
@@ -51,7 +68,7 @@ foreign import renderCanvas :: Context2d -> GeometryCache -> Effect Unit
 
 -- | Type of event handlers for the Scene component.
 type NativeGeomEventHandler
-  = Fn3 Context2d SyntheticMouseEvent GeometryCache (Effect Unit)
+  = Fn4 ForeignActionConfig Context2d SyntheticMouseEvent GeometryCache (Effect Unit)
 
 type GeomEventHandler
   = Context2d -> SyntheticMouseEvent -> GeometryCache -> Effect Unit
@@ -63,13 +80,13 @@ foreign import handleMouseDownImpl :: NativeGeomEventHandler
 foreign import handleMouseMoveImpl :: NativeGeomEventHandler
 
 handleMouseDown :: GeomEventHandler
-handleMouseDown = runFn3 handleMouseDownImpl
+handleMouseDown = runFn4 handleMouseDownImpl def
 
 handleMouseMove :: GeomEventHandler
-handleMouseMove = runFn3 handleMouseMoveImpl
+handleMouseMove = runFn4 handleMouseMoveImpl def
 
 handleMouseUp :: GeomEventHandler
-handleMouseUp = runFn3 handleMouseUpImpl
+handleMouseUp = runFn4 handleMouseUpImpl def
 
 render :: Effect Unit
 render = runWidgetInDom "app" $ component $ { context: Nothing, geometryCache: unsafePerformEffect emptyGeometryCache }
@@ -85,7 +102,6 @@ withContext ref comp = do
   case matchingRef of
     Nothing -> pure unit
     Just element -> do
-      logShow "go there"
       context <- getContext (unsafeCoerce element)
       comp context
 
@@ -137,5 +153,6 @@ component st = do
 
     HandleEvent handler event ref ->
       withContext ref $ \ctx -> do
+        logShow "handling event..."
         _ <- handler ctx event state.geometryCache
-        pure $ const unit $ handleQuery $ Rerender ref unit
+        pure $ const unit (handleQuery $ Rerender ref unit)
