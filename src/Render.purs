@@ -6,7 +6,7 @@ import Prim
 import Category.Main (Category, Object(..), createMorphism)
 import Concur.Core (Widget)
 import Concur.React (HTML)
-import Concur.React.DOM (El, text, button')
+import Concur.React.DOM (El, text, div', button')
 import Concur.React.DOM as D
 import Concur.React.Props (onMouseDown, onMouseMove)
 import Concur.React.Props as P
@@ -18,6 +18,7 @@ import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Class (liftEffect)
+import Effect.Console (logShow)
 import Effect.Unsafe (unsafePerformEffect)
 import React.Ref (NativeNode, Ref)
 import React.Ref as Ref
@@ -72,7 +73,12 @@ handleMouseUp = runFn3 handleMouseUpImpl
 
 render :: Effect Unit
 -- render = runWidgetInDom "component" $ component $ { context: Nothing, geometryCache: unsafePerformEffect emptyGeometryCache }
-render = runWidgetInDom "bloo" $ (button' [text "Hello Sailor!"] :: forall a. Widget HTML a)
+render = do
+  logShow "This ran!"
+  runWidgetInDom "bloo" $ (div'
+  [ button' [text "Ahoy Port!"]
+  , button' [text "Ahoy Starboard!"]
+  ] :: forall a. Widget HTML a)
 
 foreign import resizeCanvas :: El -> Effect Unit
 
