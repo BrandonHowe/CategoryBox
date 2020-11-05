@@ -31,6 +31,7 @@ import Unsafe.Coerce (unsafeCoerce)
 data ForeignAction
   = CreateObject Int Int String
   | CreateMorphism Int Int
+  | StartMorphism Int
   | StartDragging Int
   | StopDragging
   | NoAction
@@ -39,6 +40,7 @@ newtype ForeignActionConfig
   = ForeignActionConfig
   { createObject :: Fn3 Int Int String ForeignAction
   , createMorphism :: Fn2 Int Int ForeignAction
+  , startMorphism :: Fn1 Int ForeignAction
   , startDragging :: Fn1 Int ForeignAction
   , stopDragging :: ForeignAction
   , nothing :: ForeignAction
@@ -50,6 +52,7 @@ instance defaultForeignActionConfig :: Default ForeignActionConfig where
     ForeignActionConfig
       { createObject: mkFn3 CreateObject
       , createMorphism: mkFn2 CreateMorphism
+      , startMorphism: mkFn1 StartMorphism
       , startDragging: mkFn1 StartDragging
       , stopDragging: StopDragging
       , nothing: NoAction
@@ -63,6 +66,7 @@ handleForeignAction category geom action = case action of
         obj2 = category.objects !! idx2
         newMorphism = createMorphism <$> obj1 <*> obj2
     in Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) $ geom { geometryCache = createForeignMorphism geom.geometryCache idx1 idx2 }
+  StartMorphism idx -> Tuple category ( geom { geometryCache = startMorphism geom.geometryCache idx })
   StartDragging idx -> Tuple category ( geom { geometryCache = startDragging geom.geometryCache idx })
   StopDragging -> Tuple category ( geom { geometryCache = stopDragging geom.geometryCache })
   NoAction -> Tuple category geom
@@ -92,6 +96,8 @@ foreign import createObjectImpl :: Fn4 GeometryCache Int Int String GeometryCach
 
 foreign import createMorphismImpl :: Fn3 GeometryCache Int Int GeometryCache
 
+foreign import startMorphismImpl :: Fn2 GeometryCache Int GeometryCache
+
 foreign import startDraggingImpl :: Fn2 GeometryCache Int GeometryCache
 
 foreign import stopDraggingImpl :: Fn1 GeometryCache GeometryCache
@@ -101,6 +107,9 @@ createForeignObject = runFn4 createObjectImpl
 
 createForeignMorphism :: GeometryCache -> Int -> Int -> GeometryCache
 createForeignMorphism = runFn3 createMorphismImpl
+
+startMorphism :: GeometryCache -> Int -> GeometryCache
+startMorphism = runFn2 startMorphismImpl
 
 startDragging :: GeometryCache -> Int -> GeometryCache
 startDragging = runFn2 startDraggingImpl

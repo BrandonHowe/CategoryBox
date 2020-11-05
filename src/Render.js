@@ -8,6 +8,7 @@ exports.emptyGeometryCache = render.emptyGeometryCache;
 
 exports.createObjectImpl = render.createObject;
 exports.createMorphismImpl = render.createMorphism;
+exports.startMorphismImpl = render.startMorphism;
 exports.startDraggingImpl = render.startDragging;
 exports.stopDraggingImpl = render.stopDragging;
 

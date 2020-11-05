@@ -18,14 +18,16 @@ import { GeometryCache } from "./types/Object";
 const W = 300;
 const H = 300;
 
-export const emptyGeometryCache = () => ({
+export const emptyGeometryCache = (): GeometryCache => ({
     objects: [{
         name: "blah",
         position: [100, 100],
-        shape: circle([100, 100], 10, { fill: "black" })
+        shape: circle([100, 100], 10, { fill: "black" }),
+        id: 1
     }],
     morphisms: [],
-    camera: transform23(null, [0, 0], 0, 1) as Mat23Like
+    camera: transform23(null, [0, 0], 0, 1) as Mat23Like,
+    mouseDown: false
 });
 
 const getMouseTransform = (
@@ -84,12 +86,12 @@ export const onMouseMove = (
 
     cache.objects.map(l => l.shape.attribs!.fill = "#000");
 
-    if (target.type === MouseTargetKind.Object && target.target !== cache.dragging) {
+    if (target.type === MouseTargetKind.Object && !cache.dragging) {
         target.target!.shape.attribs!.fill = "#999";
     }
 
     if (cache.mouseDown && !cache.dragging && target) {
-        cache.dragging = target.target!;
+        return () => config.startDragging(cache.objects.indexOf(target.target!));
     }
 
     if (cache.dragging) {
@@ -111,22 +113,29 @@ export const createObject = (cache: GeometryCache, posX: number, posY: number, n
 }
 
 export const createMorphism = (cache: GeometryCache, idx1: number, idx2: number): GeometryCache => {
+    console.log(`Creating morphism: ${idx1}|${idx2}`);
     cache.morphisms.push({
         id: cache.objects.length + 1,
         from: cache.objects[idx1].shape,
         to: cache.objects[idx2]!.shape,
         name
     });
+    delete cache.morphismStart;
     return cache;
 }
 
+export const startMorphism = (cache: GeometryCache, idx: number): GeometryCache => {
+    cache.morphismStart = cache.objects[idx];
+    return cache;
+};
+
 export const startDragging = (cache: GeometryCache, idx: number): GeometryCache => {
+    console.log("We called a start dragging boyzzz");
     cache.dragging = cache.objects[idx];
     return cache;
 };
 
 export const stopDragging = (cache: GeometryCache): GeometryCache => {
-    console.log("STOP THE DRAG");
     cache.mouseDown = false;
     delete cache.dragging;
     return cache;
@@ -145,7 +154,6 @@ export const onMouseDown = (
     event: MouseEvent,
     cache: GeometryCache,
 ): () => ForeignAction => {
-    console.log("We got a mousedown event!");
     const { mousePosition, target } = getEventData(ctx, event, cache);
     if (target.type === MouseTargetKind.Nothing) {
         console.log("We are creating an object on the TS side.");
@@ -154,7 +162,7 @@ export const onMouseDown = (
     } else if (target.type === MouseTargetKind.Object) {
         if (cache.morphismStart) {
             render(ctx)(cache);
-            return () => config.createMorphism(cache.morphismStart.id, target.target!.id);
+            return () => config.createMorphism(cache.objects.indexOf(cache.morphismStart!), cache.objects.indexOf(target.target!));
         } else {
             cache.mouseDown = true;
         }
@@ -178,8 +186,9 @@ export const onMouseUp = (
 ): () => ForeignAction => {
     const { target } = getEventData(ctx, event, cache);
     if (cache.mouseDown && target && !cache.dragging) {
-        cache.morphismStart = target.target!;
         target.target!.shape.attribs!.fill = "#f00";
+        cache.mouseDown = false;
+        return () => config.startMorphism(cache.objects.indexOf(target.target!));
     }
     if (cache.dragging) {
         return () => config.stopDragging;
