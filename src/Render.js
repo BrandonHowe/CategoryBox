@@ -7,7 +7,9 @@ exports.handleMouseMoveImpl = render.onMouseMove;
 exports.emptyGeometryCache = render.emptyGeometryCache;
 
 exports.createObjectImpl = render.createObject;
-exports.creatMorphismImpl = render.createMorphism;
+exports.createMorphismImpl = render.createMorphism;
+exports.startDraggingImpl = render.startDragging;
+exports.stopDraggingImpl = render.stopDragging;
 
 // Scale a canvas to its bounding box
 exports.resizeCanvas = canvas => () => {

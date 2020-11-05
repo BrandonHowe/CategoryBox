@@ -8,13 +8,13 @@ import Concur.Core (Widget)
 import Concur.React (HTML)
 import Concur.React.DOM (El, text)
 import Concur.React.DOM as D
-import Concur.React.Props (onMouseDown, onMouseMove)
+import Concur.React.Props (onMouseDown, onMouseMove, onMouseUp)
 import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
 import Control.Apply (applyFirst)
 import Data.Array (length, singleton, snoc, (!!))
 import Data.Default (class Default, def)
-import Data.Function.Uncurried (Fn2, Fn3, Fn4, runFn4, runFn3, mkFn3, mkFn2)
+import Data.Function.Uncurried (Fn1, Fn2, Fn3, Fn4, runFn4, runFn3, runFn2, runFn1, mkFn3, mkFn2, mkFn1)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst, snd)
@@ -31,12 +31,16 @@ import Unsafe.Coerce (unsafeCoerce)
 data ForeignAction
   = CreateObject Int Int String
   | CreateMorphism Int Int
+  | StartDragging Int
+  | StopDragging
   | NoAction
 
 newtype ForeignActionConfig
   = ForeignActionConfig
   { createObject :: Fn3 Int Int String ForeignAction
   , createMorphism :: Fn2 Int Int ForeignAction
+  , startDragging :: Fn1 Int ForeignAction
+  , stopDragging :: ForeignAction
   , nothing :: ForeignAction
   }
 
@@ -46,6 +50,8 @@ instance defaultForeignActionConfig :: Default ForeignActionConfig where
     ForeignActionConfig
       { createObject: mkFn3 CreateObject
       , createMorphism: mkFn2 CreateMorphism
+      , startDragging: mkFn1 StartDragging
+      , stopDragging: StopDragging
       , nothing: NoAction
       }
 
@@ -57,6 +63,8 @@ handleForeignAction category geom action = case action of
         obj2 = category.objects !! idx2
         newMorphism = createMorphism <$> obj1 <*> obj2
     in Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) $ geom { geometryCache = createForeignMorphism geom.geometryCache idx1 idx2 }
+  StartDragging idx -> Tuple category ( geom { geometryCache = startDragging geom.geometryCache idx })
+  StopDragging -> Tuple category ( geom { geometryCache = stopDragging geom.geometryCache })
   NoAction -> Tuple category geom
 
 foreign import data Context2d :: Type
@@ -82,13 +90,23 @@ foreign import handleMouseMoveImpl :: NativeGeomEventHandler
 
 foreign import createObjectImpl :: Fn4 GeometryCache Int Int String GeometryCache
 
-foreign import createMorphismImpl :: Fn4 GeometryCache Int Int GeometryCache
+foreign import createMorphismImpl :: Fn3 GeometryCache Int Int GeometryCache
+
+foreign import startDraggingImpl :: Fn2 GeometryCache Int GeometryCache
+
+foreign import stopDraggingImpl :: Fn1 GeometryCache GeometryCache
 
 createForeignObject :: GeometryCache -> Int -> Int -> String -> GeometryCache
 createForeignObject = runFn4 createObjectImpl
 
 createForeignMorphism :: GeometryCache -> Int -> Int -> GeometryCache
 createForeignMorphism = runFn3 createMorphismImpl
+
+startDragging :: GeometryCache -> Int -> GeometryCache
+startDragging = runFn2 startDraggingImpl
+
+stopDragging :: GeometryCache -> GeometryCache
+stopDragging = runFn1 stopDraggingImpl
 
 handleMouseDown :: GeomEventHandler
 handleMouseDown = runFn4 handleMouseDownImpl def
@@ -139,6 +157,7 @@ component category st = do
   event <- D.div
     [ (\event -> HandleEvent handleMouseDown event canvasRef) <$> onMouseDown
     , (\event -> HandleEvent handleMouseMove event canvasRef) <$> onMouseMove
+    , (\event -> HandleEvent handleMouseUp event canvasRef) <$> onMouseUp
     ]
     [ D.canvas
       [ P.width $ "600px"
@@ -165,13 +184,11 @@ component category st = do
   handleAction :: GeometryState -> Action -> Effect (Maybe (Tuple Category GeometryState))
   handleAction state action = case action of
     Render ref -> do
-      log "Rerendering!"
       _ <- withContext ref (\ctx -> renderCanvas ctx state.geometryCache)
       pure Nothing
 
     HandleEvent handler event ref -> do
       foreignAction <- withContext ref $ \ctx -> do
-        log "handling event!"
         handler ctx event state.geometryCache
       case foreignAction of
         Just (CreateObject a b c) -> log $ "New object: " <> show a <> " " <> show b <> " " <> c

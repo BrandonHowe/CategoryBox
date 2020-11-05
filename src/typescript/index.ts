@@ -120,6 +120,18 @@ export const createMorphism = (cache: GeometryCache, idx1: number, idx2: number)
     return cache;
 }
 
+export const startDragging = (cache: GeometryCache, idx: number): GeometryCache => {
+    cache.dragging = cache.objects[idx];
+    return cache;
+};
+
+export const stopDragging = (cache: GeometryCache): GeometryCache => {
+    console.log("STOP THE DRAG");
+    cache.mouseDown = false;
+    delete cache.dragging;
+    return cache;
+};
+
 /**
  * Handle a mouseDown event
  *
@@ -170,7 +182,7 @@ export const onMouseUp = (
         target.target!.shape.attribs!.fill = "#f00";
     }
     if (cache.dragging) {
-        delete cache.dragging;
+        return () => config.stopDragging;
     }
     cache.mouseDown = false;
     render(ctx)(cache);
@@ -178,7 +190,6 @@ export const onMouseUp = (
 };
 
 export const render = (ctx: CanvasRenderingContext2D) => (cache: GeometryCache) => {
-    console.log("Cache", cache);
     ctx.resetTransform();
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     cache.objects.map(l => {
