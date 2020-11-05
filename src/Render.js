@@ -6,6 +6,9 @@ exports.handleMouseDownImpl = render.onMouseDown;
 exports.handleMouseMoveImpl = render.onMouseMove;
 exports.emptyGeometryCache = render.emptyGeometryCache;
 
+exports.createObjectImpl = render.createObject;
+exports.creatMorphismImpl = render.createMorphism;
+
 // Scale a canvas to its bounding box
 exports.resizeCanvas = canvas => () => {
     const { width, height } = canvas.getBoundingClientRect();

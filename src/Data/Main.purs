@@ -30,6 +30,12 @@ type Category =
   , morphisms :: Array Morphism
   }
 
+emptyCategory :: Category
+emptyCategory =
+  { objects: []
+  , morphisms: []
+  }
+
 isMorphismInCategory :: Category -> Maybe Object -> Maybe Object -> Boolean
 isMorphismInCategory _ Nothing Nothing = true
 isMorphismInCategory category (Just f) Nothing = foldl (\m (Morphism n) -> m || fst n == f) false category.morphisms

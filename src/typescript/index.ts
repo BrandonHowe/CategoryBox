@@ -32,7 +32,6 @@ const getMouseTransform = (
     ctx: CanvasRenderingContext2D,
     cache: GeometryCache
 ) => {
-    console.log(ctx);
     const bounds = ctx.canvas.getBoundingClientRect();
 
     const transform = transform23(
@@ -101,6 +100,26 @@ export const onMouseMove = (
     return () => config.nothing;
 }
 
+export const createObject = (cache: GeometryCache, posX: number, posY: number, name: string): GeometryCache => {
+    cache.objects.push({
+        id: cache.objects.length + 1,
+        position: [posX, posY],
+        name,
+        shape: circle([posX, posY], 10, { fill: "black" })
+    });
+    return cache;
+}
+
+export const createMorphism = (cache: GeometryCache, idx1: number, idx2: number): GeometryCache => {
+    cache.morphisms.push({
+        id: cache.objects.length + 1,
+        from: cache.objects[idx1].shape,
+        to: cache.objects[idx2]!.shape,
+        name
+    });
+    return cache;
+}
+
 /**
  * Handle a mouseDown event
  *
@@ -114,16 +133,21 @@ export const onMouseDown = (
     event: MouseEvent,
     cache: GeometryCache,
 ): () => ForeignAction => {
+    console.log("We got a mousedown event!");
     const { mousePosition, target } = getEventData(ctx, event, cache);
     if (target.type === MouseTargetKind.Nothing) {
+        console.log("We are creating an object on the TS side.");
+        render(ctx)(cache);
         return () => config.createObject(mousePosition[0], mousePosition[1]);
     } else if (target.type === MouseTargetKind.Object) {
         if (cache.morphismStart) {
+            render(ctx)(cache);
             return () => config.createMorphism(cache.morphismStart.id, target.target!.id);
         } else {
             cache.mouseDown = true;
         }
     }
+    render(ctx)(cache);
     return () => config.nothing;
 };
 
@@ -149,10 +173,12 @@ export const onMouseUp = (
         delete cache.dragging;
     }
     cache.mouseDown = false;
+    render(ctx)(cache);
     return () => config.nothing;
 };
 
 export const render = (ctx: CanvasRenderingContext2D) => (cache: GeometryCache) => {
+    console.log("Cache", cache);
     ctx.resetTransform();
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     cache.objects.map(l => {
