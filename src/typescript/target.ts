@@ -24,7 +24,9 @@ export const getMouseTarget = (
     cache: GeometryCache
 ): MouseTarget => {
     if (cache.objects.length === 0) {
-        return null;
+        return {
+            type: MouseTargetKind.Nothing
+        };
     }
 
     const nodes = [...cache.objects];
