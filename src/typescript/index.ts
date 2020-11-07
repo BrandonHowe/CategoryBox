@@ -1,5 +1,6 @@
 import {
     arc,
+    Circle,
     circle, line, text,
 } from "@thi.ng/geom";
 import { draw } from "@thi.ng/hiccup-canvas";
@@ -13,7 +14,8 @@ import {
 import { sin, Vec } from "@thi.ng/vectors";
 import { getMouseTarget, MouseTarget, MouseTargetKind } from "./target";
 import { ForeignAction, ForeignActionConfig } from "./types/ForeignAction";
-import { GeometryCache } from "./types/Object";
+import { MorphismGeometry } from './types/Morphism';
+import { GeometryCache, ObjectGeometry } from "./types/Object";
 
 const W = 300;
 const H = 300;
@@ -82,16 +84,22 @@ export const onMouseMove = (
     cache.objects.map(l => l.shape.attribs!.fill = "#000");
 
     if (target && target.type === MouseTargetKind.Object && !cache.dragging) {
-        target.target!.shape.attribs!.fill = "#999";
+        target.target.shape.attribs!.fill = "#999";
     }
 
-    if (cache.mouseDown && !cache.dragging && target) {
-        return () => config.startDragging(cache.objects.indexOf(target.target!));
+    if (cache.mouseDown && !cache.dragging && target.type === MouseTargetKind.Object) {
+        return () => config.startDragging(cache.objects.indexOf(target.target));
     }
 
     if (cache.dragging) {
         cache.dragging.position = mouse;
         cache.dragging.shape.pos = mouse;
+        cache.morphisms.map(l => {
+            const { arrowhead1, arrowhead2, shape } = getMorphismShapes(l.from, l.to);
+            l.arrowhead1 = arrowhead1;
+            l.arrowhead2 = arrowhead2;
+            l.shape = shape;
+        })
     }
     
     return () => config.nothing;
@@ -101,19 +109,43 @@ export const createObject = (cache: GeometryCache, posX: number, posY: number, n
     cache.objects.push({
         id: cache.objects.length + 1,
         position: [posX, posY],
-        name: prompt("What is the name of this object?")!,
+        name: prompt("What is the name of this object?") || "",
         shape: circle([posX, posY], 10, { fill: "black" })
     });
     return cache;
 }
 
+const getMorphismShapes = (from: Circle, to: Circle): Pick<MorphismGeometry, "arrowhead1" | "arrowhead2" | "shape"> => {
+    const angle = (Math.atan2(to.pos[1] - from.pos[1], to.pos[0] - from.pos[0]) * (180 / Math.PI) + 360) % 360;
+    const modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
+    const modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
+    const newEndpoint = [to.pos[0] - modifiedXDist, to.pos[1] - modifiedYDist];
+    const arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 10];
+    const arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 10];
+    const arrowhead1 = line(newEndpoint, arrowheadPoint1);
+    const arrowhead2 = line(newEndpoint, arrowheadPoint2);
+    const shape = line([from.pos[0] + modifiedXDist, from.pos[1] + modifiedYDist], newEndpoint);
+    return {
+        arrowhead1,
+        arrowhead2,
+        shape
+    };
+};
+
 export const createMorphism = (cache: GeometryCache, idx1: number, idx2: number): GeometryCache => {
     console.log(`Creating morphism: ${idx1}|${idx2}`);
+    const from = cache.objects[idx1];
+    const to = cache.objects[idx2];
+    const name = prompt("What is the name of this morphism?") || "";
+    const { arrowhead1, arrowhead2, shape } = getMorphismShapes(from.shape, to.shape);
     cache.morphisms.push({
         id: cache.objects.length + 1,
         from: cache.objects[idx1].shape,
         to: cache.objects[idx2]!.shape,
-        name: prompt("What is the name of this morphism?")!
+        name,
+        arrowhead1,
+        arrowhead2,
+        shape
     });
     delete cache.morphismStart;
     return cache;
@@ -180,7 +212,7 @@ export const onMouseUp = (
     cache: GeometryCache,
 ): () => ForeignAction => {
     const { target } = getEventData(ctx, event, cache);
-    if (cache.mouseDown && target && !cache.dragging) {
+    if (cache.mouseDown && target.type === MouseTargetKind.Object && !cache.dragging) {
         target.target!.shape.attribs!.fill = "#f00";
         cache.mouseDown = false;
         return () => config.startMorphism(cache.objects.indexOf(target.target!));
@@ -204,18 +236,13 @@ export const render = (ctx: CanvasRenderingContext2D) => (cache: GeometryCache) 
     cache.morphisms.map(l => {
         if (l.from !== l.to) {
             const angle = (Math.atan2(l.to.pos[1] - l.from.pos[1], l.to.pos[0] - l.from.pos[0]) * (180 / Math.PI) + 360) % 360;
-            const modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
-            const modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
-            const newEndpoint = [l.to.pos[0] - modifiedXDist, l.to.pos[1] - modifiedYDist];
-            const arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 10];
-            const arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 10];
             const midpoint = [(l.from.pos[0] + l.to.pos[0]) / 2, (l.from.pos[1] + l.to.pos[1]) / 2];
             const modifiedAngle = (angle + 270) % 360;
             const textPos = [midpoint[0] + (20 * Math.cos(modifiedAngle * Math.PI / 360)), midpoint[1] + (20 * Math.sin(modifiedAngle * Math.PI / 360))];
+            draw(ctx, l.arrowhead1);
+            draw(ctx, l.arrowhead2);
+            draw(ctx, l.shape);
             draw(ctx, text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" }));
-            draw(ctx, line(newEndpoint, arrowheadPoint1));
-            draw(ctx, line(newEndpoint, arrowheadPoint2));
-            draw(ctx, line([l.from.pos[0] + modifiedXDist, l.from.pos[1] + modifiedYDist], newEndpoint));
         }
     });
     return () => {};

@@ -1,8 +1,11 @@
-import { Circle } from "@thi.ng/geom";
+import { Circle, Line } from "@thi.ng/geom";
 
 export interface MorphismGeometry {
     id: number;
     from: Circle;
     to: Circle;
     name: string;
+    arrowhead1: Line;
+    arrowhead2: Line;
+    shape: Line;
 }
