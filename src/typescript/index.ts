@@ -81,10 +81,24 @@ export const onMouseMove = (
   
     const target = getMouseTarget(mousePosition, cache);
 
-    cache.objects.map(l => l.shape.attribs!.fill = "#000");
+    cache.objects.map(l => {
+        if (cache.morphismStart !== l) { 
+            l.shape.attribs!.fill = "#000";
+        }
+    });
+    cache.morphisms.map(l => {
+        l.arrowhead1.attribs!.weight = 1
+        l.arrowhead2.attribs!.weight = 1
+        l.shape.attribs!.weight = 1
+    });
 
-    if (target && target.type === MouseTargetKind.Object && !cache.dragging) {
+    if (target.type === MouseTargetKind.Object && !cache.dragging) {
         target.target.shape.attribs!.fill = "#999";
+    }
+    if (target.type === MouseTargetKind.Morphism && !cache.dragging) {
+        target.target.shape.attribs!.weight = 3;
+        target.target.arrowhead1.attribs!.weight = 3;
+        target.target.arrowhead2.attribs!.weight = 3;
     }
 
     if (cache.mouseDown && !cache.dragging && target.type === MouseTargetKind.Object) {
@@ -122,9 +136,9 @@ const getMorphismShapes = (from: Circle, to: Circle): Pick<MorphismGeometry, "ar
     const newEndpoint = [to.pos[0] - modifiedXDist, to.pos[1] - modifiedYDist];
     const arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 10];
     const arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 10];
-    const arrowhead1 = line(newEndpoint, arrowheadPoint1);
-    const arrowhead2 = line(newEndpoint, arrowheadPoint2);
-    const shape = line([from.pos[0] + modifiedXDist, from.pos[1] + modifiedYDist], newEndpoint);
+    const arrowhead1 = line(newEndpoint, arrowheadPoint1, {});
+    const arrowhead2 = line(newEndpoint, arrowheadPoint2, {});
+    const shape = line([from.pos[0] + modifiedXDist, from.pos[1] + modifiedYDist], newEndpoint, { weight: 1 });
     return {
         arrowhead1,
         arrowhead2,
@@ -133,7 +147,6 @@ const getMorphismShapes = (from: Circle, to: Circle): Pick<MorphismGeometry, "ar
 };
 
 export const createMorphism = (cache: GeometryCache, idx1: number, idx2: number): GeometryCache => {
-    console.log(`Creating morphism: ${idx1}|${idx2}`);
     const from = cache.objects[idx1];
     const to = cache.objects[idx2];
     const name = prompt("What is the name of this morphism?") || "";
@@ -148,6 +161,9 @@ export const createMorphism = (cache: GeometryCache, idx1: number, idx2: number)
         shape
     });
     delete cache.morphismStart;
+    if (cache.composing) {
+        delete cache.composing;
+    }
     return cache;
 }
 
@@ -157,8 +173,12 @@ export const startMorphism = (cache: GeometryCache, idx: number): GeometryCache 
 };
 
 export const startDragging = (cache: GeometryCache, idx: number): GeometryCache => {
-    console.log("We called a start dragging boyzzz");
     cache.dragging = cache.objects[idx];
+    return cache;
+};
+
+export const startComposition = (cache: GeometryCache, idx: number): GeometryCache => {
+    cache.composing = cache.morphisms[idx];
     return cache;
 };
 
@@ -183,15 +203,20 @@ export const onMouseDown = (
 ): () => ForeignAction => {
     const { mousePosition, target } = getEventData(ctx, event, cache);
     if (target?.type === MouseTargetKind.Nothing) {
-        console.log("We are creating an object on the TS side.");
         render(ctx)(cache);
-        return () => config.createObject(mousePosition[0], mousePosition[1], "blah");
+        return () => config.createObject(mousePosition[0], mousePosition[1], `${cache.objects.length}`);
     } else if (target?.type === MouseTargetKind.Object) {
         if (cache.morphismStart) {
             render(ctx)(cache);
-            return () => config.createMorphism(cache.objects.indexOf(cache.morphismStart!), cache.objects.indexOf(target.target!));
+            return () => config.createMorphism(cache.objects.indexOf(cache.morphismStart!), cache.objects.indexOf(target.target));
         } else {
             cache.mouseDown = true;
+        }
+    } else if (target?.type === MouseTargetKind.Morphism) {
+        if (cache.composing) {
+            return () => config.composeMorphisms(cache.morphisms.indexOf(cache.composing!), cache.morphisms.indexOf(target.target));
+        } else {
+            cache.composing = target.target;
         }
     }
     render(ctx)(cache);

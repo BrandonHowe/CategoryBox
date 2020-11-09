@@ -3,7 +3,7 @@ module Render where
 import Prelude
 import Prim
 
-import Category.Main (Category, Object(..), createMorphism, emptyCategory)
+import Category.Main (Category, Object(..), Morphism(..), composeMorphisms, createMorphism, emptyCategory)
 import Concur.Core (Widget)
 import Concur.React (HTML)
 import Concur.React.DOM (El, text)
@@ -12,7 +12,7 @@ import Concur.React.Props (onMouseDown, onMouseMove, onMouseUp)
 import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
 import Control.Apply (applyFirst)
-import Data.Array (length, singleton, snoc, (!!))
+import Data.Array (elemIndex, singleton, snoc, (!!))
 import Data.Default (class Default, def)
 import Data.Function.Uncurried (Fn1, Fn2, Fn3, Fn4, runFn4, runFn3, runFn2, runFn1, mkFn3, mkFn2, mkFn1)
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -31,6 +31,7 @@ import Unsafe.Coerce (unsafeCoerce)
 data ForeignAction
   = CreateObject Int Int String
   | CreateMorphism Int Int
+  | ComposeMorphisms Int Int
   | StartMorphism Int
   | StartDragging Int
   | StopDragging
@@ -40,6 +41,7 @@ newtype ForeignActionConfig
   = ForeignActionConfig
   { createObject :: Fn3 Int Int String ForeignAction
   , createMorphism :: Fn2 Int Int ForeignAction
+  , composeMorphisms :: Fn2 Int Int ForeignAction
   , startMorphism :: Fn1 Int ForeignAction
   , startDragging :: Fn1 Int ForeignAction
   , stopDragging :: ForeignAction
@@ -52,6 +54,7 @@ instance defaultForeignActionConfig :: Default ForeignActionConfig where
     ForeignActionConfig
       { createObject: mkFn3 CreateObject
       , createMorphism: mkFn2 CreateMorphism
+      , composeMorphisms: mkFn2 ComposeMorphisms
       , startMorphism: mkFn1 StartMorphism
       , startDragging: mkFn1 StartDragging
       , stopDragging: StopDragging
@@ -66,6 +69,13 @@ handleForeignAction category geom action = case action of
         obj2 = category.objects !! idx2
         newMorphism = createMorphism <$> obj1 <*> obj2
     in Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) $ geom { geometryCache = createForeignMorphism geom.geometryCache idx1 idx2 }
+  ComposeMorphisms idx1 idx2 ->
+    let mor1 = category.morphisms !! idx1
+        mor2 = category.morphisms !! idx2
+        composedMorphism = join $ composeMorphisms <$> mor1 <*> mor2
+        composedIdx1 = join $ (\(Morphism (Tuple obj1 _)) -> elemIndex obj1 category.objects) <$> composedMorphism
+        composedIdx2 = join $ (\(Morphism (Tuple _ obj2)) -> elemIndex obj2 category.objects) <$> composedMorphism
+    in Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton composedMorphism) }) ( geom { geometryCache = fromMaybe geom.geometryCache $ createForeignMorphism geom.geometryCache <$> composedIdx1 <*> composedIdx2 })
   StartMorphism idx -> Tuple category ( geom { geometryCache = startMorphism geom.geometryCache idx })
   StartDragging idx -> Tuple category ( geom { geometryCache = startDragging geom.geometryCache idx })
   StopDragging -> Tuple category ( geom { geometryCache = stopDragging geom.geometryCache })
@@ -100,6 +110,8 @@ foreign import startMorphismImpl :: Fn2 GeometryCache Int GeometryCache
 
 foreign import startDraggingImpl :: Fn2 GeometryCache Int GeometryCache
 
+foreign import startComposingImpl :: Fn2 GeometryCache Int GeometryCache
+
 foreign import stopDraggingImpl :: Fn1 GeometryCache GeometryCache
 
 createForeignObject :: GeometryCache -> Int -> Int -> String -> GeometryCache
@@ -113,6 +125,9 @@ startMorphism = runFn2 startMorphismImpl
 
 startDragging :: GeometryCache -> Int -> GeometryCache
 startDragging = runFn2 startDraggingImpl
+
+startComposing :: GeometryCache -> Int -> GeometryCache
+startComposing = runFn2 startComposingImpl
 
 stopDragging :: GeometryCache -> GeometryCache
 stopDragging = runFn1 stopDraggingImpl
@@ -174,7 +189,6 @@ component category st = do
       , P._id $ "leCanvas"
       , P.ref (Ref.fromRef canvasRef)
       ] []
-    , text $ show category.objects
     ]
 
   newState <- liftEffect $ handleAction st event

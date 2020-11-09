@@ -10,6 +10,7 @@ exports.createObjectImpl = render.createObject;
 exports.createMorphismImpl = render.createMorphism;
 exports.startMorphismImpl = render.startMorphism;
 exports.startDraggingImpl = render.startDragging;
+exports.startComposingImpl = render.startComposingImpl;
 exports.stopDraggingImpl = render.stopDragging;
 
 // Scale a canvas to its bounding box
