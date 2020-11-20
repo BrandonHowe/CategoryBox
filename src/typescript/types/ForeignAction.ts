@@ -5,7 +5,9 @@ export type ForeignAction = { readonly foreignAction: unique symbol }
 
 export interface ForeignActionConfig {
     createObject: Fn3<number, number, string, ForeignAction>;
-    createMorphism: Fn2<number, number, ForeignAction>;
+    getObjectName: Fn2<number, number, ForeignAction>;
+    createMorphism: Fn3<number, number, string, ForeignAction>;
+    getMorphismName: Fn2<number, number, ForeignAction>;
     composeMorphisms: Fn2<number, number, ForeignAction>;
     startMorphism: Fn<number, ForeignAction>;
     startDragging: Fn<number, ForeignAction>;

@@ -120,10 +120,11 @@ export const onMouseMove = (
 }
 
 export const createObject = (cache: GeometryCache, posX: number, posY: number, name: string): GeometryCache => {
+    console.log("Creating object");
     cache.objects.push({
         id: cache.objects.length + 1,
         position: [posX, posY],
-        name: prompt("What is the name of this object?") || "",
+        name,
         shape: circle([posX, posY], 10, { fill: "black" })
     });
     return cache;
@@ -146,10 +147,10 @@ const getMorphismShapes = (from: Circle, to: Circle): Pick<MorphismGeometry, "ar
     };
 };
 
-export const createMorphism = (cache: GeometryCache, idx1: number, idx2: number): GeometryCache => {
+export const createMorphism = (cache: GeometryCache, idx1: number, idx2: number, name: string): GeometryCache => {
+    console.log("Creating morphism");
     const from = cache.objects[idx1];
     const to = cache.objects[idx2];
-    const name = prompt("What is the name of this morphism?") || "";
     const { arrowhead1, arrowhead2, shape } = getMorphismShapes(from.shape, to.shape);
     cache.morphisms.push({
         id: cache.objects.length + 1,
@@ -204,11 +205,11 @@ export const onMouseDown = (
     const { mousePosition, target } = getEventData(ctx, event, cache);
     if (target?.type === MouseTargetKind.Nothing) {
         render(ctx)(cache);
-        return () => config.createObject(mousePosition[0], mousePosition[1], `${cache.objects.length}`);
+        return () => config.getObjectName(mousePosition[0], mousePosition[1]);
     } else if (target?.type === MouseTargetKind.Object) {
         if (cache.morphismStart) {
             render(ctx)(cache);
-            return () => config.createMorphism(cache.objects.indexOf(cache.morphismStart!), cache.objects.indexOf(target.target));
+            return () => config.getMorphismName(cache.objects.indexOf(cache.morphismStart!), cache.objects.indexOf(target.target));
         } else {
             cache.mouseDown = true;
         }
