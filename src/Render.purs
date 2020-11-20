@@ -12,7 +12,7 @@ import Concur.React.Props (onMouseDown, onMouseMove, onMouseUp)
 import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
 import Concur.React.Widgets (textInputEnter)
-import Control.Alt((<|>))
+import Control.Alt ((<|>))
 import Data.Array (elemIndex, singleton, snoc, (!!))
 import Data.Default (class Default, def)
 import Data.Function.Uncurried (Fn1, Fn2, Fn3, Fn4, runFn4, runFn3, runFn2, runFn1, mkFn3, mkFn2, mkFn1)
@@ -86,18 +86,13 @@ handleForeignAction category geom action = case action of
   StartDragging idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startDragging geom.geometryCache idx })
   StopDragging -> NewState $ Just $ Tuple category ( geom { geometryCache = stopDragging geom.geometryCache })
   GetObjectName posX posY -> 
-    RaiseComponent $ objectNamePrompt >>= (\name -> pure $ Just $ Tuple (category { objects = snoc category.objects (Object name) } ) (geom { geometryCache = createForeignObject geom.geometryCache posX posY name } ))
-    where
-      objectNamePrompt :: Widget HTML String
-      objectNamePrompt = textInputEnter "object?" true []
+    RaiseComponent $ modalInputComponent "What is the name of this object?" "Object name" >>= (\name -> pure $ Just $ Tuple (category { objects = snoc category.objects (Object name) } ) (geom { geometryCache = createForeignObject geom.geometryCache posX posY name } ))
   GetMorphismName idx1 idx2 -> 
-    RaiseComponent $ morphismNamePrompt >>= (\name -> pure $ Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) $ geom { geometryCache = createForeignMorphism geom.geometryCache idx1 idx2 name } )
+    RaiseComponent $ modalInputComponent "What is the name of this morphism?" "Morphism name" >>= (\name -> pure $ Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) $ geom { geometryCache = createForeignMorphism geom.geometryCache idx1 idx2 name } )
     where
-      morphismNamePrompt :: Widget HTML String
-      morphismNamePrompt = textInputEnter "morphism?" true []
       obj1 = category.objects !! idx1
       obj2 = category.objects !! idx2
-      newMorphism = createMorphism <$> obj1 <*> obj2
+      newMorphism = createMorphism <$> obj1 <*> obj2 
   NoAction -> NewState $ Just $ Tuple category geom
 
 foreign import data Context2d :: Type
@@ -189,6 +184,18 @@ type Output = Unit
 data HandleActionOutput
   = NewState (Maybe (Tuple Category GeometryState))
   | RaiseComponent (Widget HTML (Maybe (Tuple Category GeometryState)))
+
+modalInputComponent :: String -> String -> Widget HTML String
+modalInputComponent question placeholder = do 
+  e <- D.div [ P.className "modalInputComponentBackground" ] 
+    [ D.div [ P.className "modalInputComponentBody" ] 
+      [ D.h2 [ P.className "modalInputComponentQuestion" ] [ D.text question ]
+      , D.input $ [P.onKeyEnter, P.placeholder placeholder, P.className "modalInputComponentInput" ] 
+      ] 
+    ]
+  new <- pure $ P.unsafeTargetValue e
+  liftEffect (P.resetTargetValue "" e)
+  pure new
 
 canvasComponent :: forall a. Category -> GeometryState -> Widget HTML a
 canvasComponent category st = do
