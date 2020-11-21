@@ -31,13 +31,12 @@ jobs:
         with:
           node-version: "12.x"
 
+      - name: Install npm modules
+        run: npm install
+
       # BUILD
       - name: Build source
         run: spago build
-
-      # PREBUILD
-      - name: Prebuild
-        run: npm run prebuild
 
       # DEPLOY
       - name: Run bundle
