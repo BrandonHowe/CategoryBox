@@ -1,7 +1,9 @@
 {
   "name": "CategoryBox",
   "scripts": {
-    "dev": "parcel public/index.html --open"
+    "dev": "parcel public/index.html --open",
+    "prebuild": "rm -rf dist",
+    "build": "spago build -x && parcel build public/index.html"
   },
   "dependencies": {
     "@thi.ng/geom": "^1.13.0",
