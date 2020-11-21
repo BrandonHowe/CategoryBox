@@ -1,11 +1,13 @@
 import { dist, Vec } from '@thi.ng/vectors';
 import { GeometryCache } from '../types/Object';
 
-export const mouseNearTarget = (
+export const objectWithinRadius = (
     mousePosition: Vec,
+    radius: number,
     cache: GeometryCache
 ) => {
+    console.log(mousePosition);
     const distanceToMouse = (position: Vec) => dist(mousePosition, position);
 
-    return cache.objects.reduce((acc, cur) => acc = distanceToMouse(cur.position) < 20, false);
+    return cache.objects.reduce((acc, cur) => acc = distanceToMouse(cur.position) < radius, false);
 };

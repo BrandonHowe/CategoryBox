@@ -67,3 +67,46 @@ export const getMouseTarget = (
         type: MouseTargetKind.Nothing
     };
 }
+
+/**
+ * Finds the object in the scene the mouse is hovering over
+ *
+ * @param mousePosition The position the mouse is at
+ * @param cache The geometry cache to search trough
+ */
+export const getAllTargets = (
+    mousePosition: Vec,
+    cache: GeometryCache
+): MouseTarget[] => {
+    if (cache.objects.length === 0) {
+        return [];
+    }
+    
+    const distanceToMouse = (position: Vec) => dist(mousePosition, position);
+
+    const objects = [...cache.objects];
+    const morphisms = [...cache.morphisms];
+
+    const output: MouseTarget[] = [];
+
+    {
+        const closestObjects = objects.filter(node => pointInside(node.shape, mousePosition));
+
+        output.push(...closestObjects.map(l => ({
+            type: MouseTargetKind.Object,
+            target: l
+        } as MouseTarget)));
+    }
+    {
+        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.map(l => ({ geometry: l, closest: closestPoint(l.shape, mousePosition)! })));
+
+        if (closestMorphism && distanceToMouse(closestMorphism.closest) < 10) {
+            output.push({
+                type: MouseTargetKind.Morphism,
+                target: closestMorphism.geometry
+            });
+        }
+    }
+
+    return output;
+}

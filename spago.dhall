@@ -11,6 +11,7 @@ You can edit this file as you like.
   , "exists"
   , "halogen"
   , "nested-functor"
+  , "numbers"
   , "psci-support"
   , "tuples"
   ]

@@ -11,15 +11,15 @@ import {
     transform23,
     Mat23Like
 } from "@thi.ng/matrices";
-import { sin, Vec } from "@thi.ng/vectors";
-import { mouseNearTarget } from './helpers/mouseNearTarget';
-import { getMouseTarget, MouseTarget, MouseTargetKind } from "./target";
+import { Vec } from "@thi.ng/vectors";
+import { objectWithinRadius } from './helpers/objectWithinRadius';
+import { getAllTargets, getMouseTarget, MouseTarget, MouseTargetKind } from "./target";
 import { ForeignAction, ForeignActionConfig } from "./types/ForeignAction";
 import { MorphismGeometry } from './types/Morphism';
 import { GeometryCache, ObjectGeometry } from "./types/Object";
 
-const W = 300;
-const H = 300;
+const W = window.innerWidth / 2 - 3;
+const H = window.innerHeight / 2 - 3;
 
 export const emptyGeometryCache = (): GeometryCache => ({
     objects: [],
@@ -107,11 +107,13 @@ export const onMouseMove = (
     }
 
     if (cache.dragging) {
-        if (target.type === MouseTargetKind.Object && target.target !== cache.dragging) {
-            const angleRad = Math.atan2(mouse[1] - target.target.position[1], mouse[0] - target.target.position[0]);
+        const targets = getAllTargets(mouse, cache);
+        if (target.type === MouseTargetKind.Object && targets.some(l => l.type === MouseTargetKind.Object && l.target !== cache.dragging)) {
+            const nonDraggingTarget = targets.find(l => l.type === MouseTargetKind.Object && l.target !== cache.dragging) as { type: MouseTargetKind.Object, target: ObjectGeometry };
+            const angleRad = Math.atan2(mouse[1] - nonDraggingTarget.target.position[1], mouse[0] - nonDraggingTarget.target.position[0]);
             const distY = 20 * Math.sin(angleRad);
             const distX = 20 * Math.cos(angleRad);
-            const newPoint = [target.target.position[0] + distX, target.target.position[1] + distY];
+            const newPoint = [nonDraggingTarget.target.position[0] + distX, nonDraggingTarget.target.position[1] + distY];
             cache.dragging.position = newPoint;
             cache.dragging.shape.pos = newPoint;
         } else {
@@ -213,7 +215,7 @@ export const onMouseDown = (
     cache: GeometryCache,
 ): () => ForeignAction => {
     const { mousePosition, target } = getEventData(ctx, event, cache);
-    if (target?.type === MouseTargetKind.Nothing && !mouseNearTarget(mousePosition, cache)) {
+    if (target?.type === MouseTargetKind.Nothing && !objectWithinRadius(mousePosition, 20, cache)) {
         render(ctx)(cache);
         return () => config.getObjectName(mousePosition[0], mousePosition[1]);
     } else if (target?.type === MouseTargetKind.Object) {

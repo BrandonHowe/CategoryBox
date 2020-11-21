@@ -1,5 +1,21 @@
 body {
     margin: 0;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#app {
+    height: 100%;
+}
+
+#canvasDiv {
+    height: 100%;
+}
+
+#leCanvas {
+    border: 3px solid black;
+    width: calc(100% - 6px);
+    height: calc(100% - 6px);
 }
 
 .modalInputComponentBackground {

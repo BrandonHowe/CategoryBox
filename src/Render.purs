@@ -15,7 +15,9 @@ import Control.Alt ((<|>))
 import Data.Array (elemIndex, singleton, snoc, (!!))
 import Data.Default (class Default, def)
 import Data.Function.Uncurried (Fn1, Fn2, Fn3, Fn4, runFn4, runFn2, runFn1, mkFn3, mkFn2, mkFn1)
+import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Number.Format (toString)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst, snd)
 import Effect (Effect)
@@ -25,6 +27,8 @@ import React.Ref (NativeNode, Ref)
 import React.Ref as Ref
 import React.SyntheticEvent (SyntheticMouseEvent)
 import Unsafe.Coerce (unsafeCoerce)
+import Web.HTML (window)
+import Web.HTML.Window (innerHeight, innerWidth)
 
 -- | Stuff the ts side of things can tell us to do
 data ForeignAction
@@ -214,10 +218,11 @@ canvasComponent category st = do
     [ (\event -> HandleEvent handleMouseDown event canvasRef) <$> onMouseDown
     , (\event -> HandleEvent handleMouseMove event canvasRef) <$> onMouseMove
     , (\event -> HandleEvent handleMouseUp event canvasRef) <$> onMouseUp
+    , P._id $ "canvasDiv"
     ]
     [ D.canvas
-      [ P.width $ "600px"
-      , P.height $ "600px"
+      [ P.width $ unsafePerformEffect $ (window >>= innerWidth) <#> (toNumber >>> toString)
+      , P.height $ unsafePerformEffect $ (window >>= innerHeight) <#> ((flip sub 6) >>> toNumber >>> toString)
       , P._id $ "leCanvas"
       , P.ref (Ref.fromRef canvasRef)
       ] []
