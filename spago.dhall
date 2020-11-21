@@ -10,6 +10,8 @@ You can edit this file as you like.
   , "effect"
   , "exists"
   , "halogen"
+  , "nested-functor"
+  , "numbers"
   , "psci-support"
   , "tuples"
   ]

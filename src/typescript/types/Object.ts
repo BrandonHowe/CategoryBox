@@ -17,4 +17,5 @@ export interface GeometryCache {
     mouseDown: boolean;
     dragging?: ObjectGeometry;
     morphismStart?: ObjectGeometry;
+    composing?: MorphismGeometry;
 }
