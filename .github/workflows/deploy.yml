@@ -38,10 +38,6 @@ jobs:
       - name: Build source
         run: spago build
 
-      # PREBUILD
-      - name: Prebuild
-        run: npm run prebuild
-
       # DEPLOY
       - name: Run bundle
         run: npm run build
