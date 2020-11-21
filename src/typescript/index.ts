@@ -12,6 +12,7 @@ import {
     Mat23Like
 } from "@thi.ng/matrices";
 import { sin, Vec } from "@thi.ng/vectors";
+import { mouseNearTarget } from './helpers/mouseNearTarget';
 import { getMouseTarget, MouseTarget, MouseTargetKind } from "./target";
 import { ForeignAction, ForeignActionConfig } from "./types/ForeignAction";
 import { MorphismGeometry } from './types/Morphism';
@@ -106,16 +107,25 @@ export const onMouseMove = (
     }
 
     if (cache.dragging) {
-        cache.dragging.position = mouse;
-        cache.dragging.shape.pos = mouse;
+        if (target.type === MouseTargetKind.Object && target.target !== cache.dragging) {
+            const angleRad = Math.atan2(mouse[1] - target.target.position[1], mouse[0] - target.target.position[0]);
+            const distY = 20 * Math.sin(angleRad);
+            const distX = 20 * Math.cos(angleRad);
+            const newPoint = [target.target.position[0] + distX, target.target.position[1] + distY];
+            cache.dragging.position = newPoint;
+            cache.dragging.shape.pos = newPoint;
+        } else {
+            cache.dragging.position = mouse;
+            cache.dragging.shape.pos = mouse;
+        }
         cache.morphisms.map(l => {
             const { arrowhead1, arrowhead2, shape } = getMorphismShapes(l.from, l.to);
             l.arrowhead1 = arrowhead1;
             l.arrowhead2 = arrowhead2;
             l.shape = shape;
-        })
+        });
     }
-    
+
     return () => config.nothing;
 }
 
@@ -203,7 +213,7 @@ export const onMouseDown = (
     cache: GeometryCache,
 ): () => ForeignAction => {
     const { mousePosition, target } = getEventData(ctx, event, cache);
-    if (target?.type === MouseTargetKind.Nothing) {
+    if (target?.type === MouseTargetKind.Nothing && !mouseNearTarget(mousePosition, cache)) {
         render(ctx)(cache);
         return () => config.getObjectName(mousePosition[0], mousePosition[1]);
     } else if (target?.type === MouseTargetKind.Object) {
