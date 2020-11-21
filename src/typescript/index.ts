@@ -215,7 +215,7 @@ export const onMouseDown = (
         }
     } else if (target?.type === MouseTargetKind.Morphism) {
         if (cache.composing) {
-            return () => config.composeMorphisms(cache.morphisms.indexOf(cache.composing!), cache.morphisms.indexOf(target.target));
+            return () => config.getCompositionName(cache.morphisms.indexOf(cache.composing!), cache.morphisms.indexOf(target.target));
         } else {
             cache.composing = target.target;
         }

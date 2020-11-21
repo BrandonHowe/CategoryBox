@@ -33,7 +33,8 @@ data ForeignAction
   | GetObjectName Int Int
   | CreateMorphism Int Int String
   | GetMorphismName Int Int
-  | ComposeMorphisms Int Int
+  | ComposeMorphisms Int Int String
+  | GetCompositionName Int Int
   | StartMorphism Int
   | StartDragging Int
   | StopDragging
@@ -45,7 +46,8 @@ newtype ForeignActionConfig
   , getObjectName :: Fn2 Int Int ForeignAction
   , createMorphism :: Fn3 Int Int String ForeignAction
   , getMorphismName :: Fn2 Int Int ForeignAction
-  , composeMorphisms :: Fn2 Int Int ForeignAction
+  , composeMorphisms :: Fn3 Int Int String ForeignAction
+  , getCompositionName :: Fn2 Int Int ForeignAction
   , startMorphism :: Fn1 Int ForeignAction
   , startDragging :: Fn1 Int ForeignAction
   , stopDragging :: ForeignAction
@@ -60,7 +62,8 @@ instance defaultForeignActionConfig :: Default ForeignActionConfig where
       , getObjectName: mkFn2 GetObjectName
       , createMorphism: mkFn3 CreateMorphism
       , getMorphismName: mkFn2 GetMorphismName
-      , composeMorphisms: mkFn2 ComposeMorphisms
+      , composeMorphisms: mkFn3 ComposeMorphisms
+      , getCompositionName: mkFn2 GetCompositionName
       , startMorphism: mkFn1 StartMorphism
       , startDragging: mkFn1 StartDragging
       , stopDragging: StopDragging
@@ -75,13 +78,13 @@ handleForeignAction category geom action = case action of
         obj2 = category.objects !! idx2
         newMorphism = createMorphism <$> obj1 <*> obj2
     in NewState $ Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) $ geom { geometryCache = createForeignMorphism geom.geometryCache idx1 idx2 name }
-  ComposeMorphisms idx1 idx2 ->
+  ComposeMorphisms idx1 idx2 name ->
     let mor1 = category.morphisms !! idx1
         mor2 = category.morphisms !! idx2
         composedMorphism = join $ composeMorphisms <$> mor1 <*> mor2
         composedIdx1 = join $ (\(Morphism (Tuple obj1 _)) -> elemIndex obj1 category.objects) <$> composedMorphism
         composedIdx2 = join $ (\(Morphism (Tuple _ obj2)) -> elemIndex obj2 category.objects) <$> composedMorphism
-    in NewState $ Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton composedMorphism) }) ( geom { geometryCache = fromMaybe geom.geometryCache $ createForeignMorphism geom.geometryCache <$> composedIdx1 <*> composedIdx2 <*> Just "blah" })
+    in NewState $ Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton composedMorphism) }) ( geom { geometryCache = fromMaybe geom.geometryCache $ createForeignMorphism geom.geometryCache <$> composedIdx1 <*> composedIdx2 <*> Just name })
   StartMorphism idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startMorphism geom.geometryCache idx })
   StartDragging idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startDragging geom.geometryCache idx })
   StopDragging -> NewState $ Just $ Tuple category ( geom { geometryCache = stopDragging geom.geometryCache })
@@ -93,6 +96,15 @@ handleForeignAction category geom action = case action of
       obj1 = category.objects !! idx1
       obj2 = category.objects !! idx2
       newMorphism = createMorphism <$> obj1 <*> obj2 
+  GetCompositionName idx1 idx2 -> 
+    RaiseComponent $ modalInputComponent "What is the name of this composed morphism?" "Morphism name" >>= (\name -> pure $ Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton composedMorphism) }) ( geom { geometryCache = fromMaybe geom.geometryCache $ createForeignMorphism geom.geometryCache <$> composedIdx1 <*> composedIdx2 <*> Just name }))
+    where
+      mor1 = category.morphisms !! idx1
+      mor2 = category.morphisms !! idx2
+      composedMorphism = join $ composeMorphisms <$> mor1 <*> mor2
+      composedIdx1 = join $ (\(Morphism (Tuple obj1 _)) -> elemIndex obj1 category.objects) <$> composedMorphism
+      composedIdx2 = join $ (\(Morphism (Tuple _ obj2)) -> elemIndex obj2 category.objects) <$> composedMorphism
+    
   NoAction -> NewState $ Just $ Tuple category geom
 
 foreign import data Context2d :: Type
