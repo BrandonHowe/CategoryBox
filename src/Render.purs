@@ -11,11 +11,10 @@ import Concur.React.DOM as D
 import Concur.React.Props (onMouseDown, onMouseMove, onMouseUp)
 import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
-import Concur.React.Widgets (textInputEnter)
 import Control.Alt ((<|>))
 import Data.Array (elemIndex, singleton, snoc, (!!))
 import Data.Default (class Default, def)
-import Data.Function.Uncurried (Fn1, Fn2, Fn3, Fn4, runFn4, runFn3, runFn2, runFn1, mkFn3, mkFn2, mkFn1)
+import Data.Function.Uncurried (Fn1, Fn2, Fn3, Fn4, runFn4, runFn2, runFn1, mkFn3, mkFn2, mkFn1)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst, snd)
@@ -70,41 +69,40 @@ instance defaultForeignActionConfig :: Default ForeignActionConfig where
       , nothing: NoAction
       }
 
-handleForeignAction :: Category -> GeometryState -> ForeignAction -> HandleActionOutput
-handleForeignAction category geom action = case action of
-  CreateObject posX posY name -> NewState $ Just $ Tuple (category { objects = snoc category.objects (Object name) }) $ geom { geometryCache = createForeignObject geom.geometryCache posX posY name }
-  CreateMorphism idx1 idx2 name -> 
-    let obj1 = category.objects !! idx1
-        obj2 = category.objects !! idx2
-        newMorphism = createMorphism <$> obj1 <*> obj2
-    in NewState $ Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) $ geom { geometryCache = createForeignMorphism geom.geometryCache idx1 idx2 name }
-  ComposeMorphisms idx1 idx2 name ->
-    let mor1 = category.morphisms !! idx1
-        mor2 = category.morphisms !! idx2
-        composedMorphism = join $ composeMorphisms <$> mor1 <*> mor2
-        composedIdx1 = join $ (\(Morphism (Tuple obj1 _)) -> elemIndex obj1 category.objects) <$> composedMorphism
-        composedIdx2 = join $ (\(Morphism (Tuple _ obj2)) -> elemIndex obj2 category.objects) <$> composedMorphism
-    in NewState $ Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton composedMorphism) }) ( geom { geometryCache = fromMaybe geom.geometryCache $ createForeignMorphism geom.geometryCache <$> composedIdx1 <*> composedIdx2 <*> Just name })
-  StartMorphism idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startMorphism geom.geometryCache idx })
-  StartDragging idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startDragging geom.geometryCache idx })
-  StopDragging -> NewState $ Just $ Tuple category ( geom { geometryCache = stopDragging geom.geometryCache })
-  GetObjectName posX posY -> 
-    RaiseComponent $ modalInputComponent "What is the name of this object?" "Object name" >>= (\name -> pure $ Just $ Tuple (category { objects = snoc category.objects (Object name) } ) (geom { geometryCache = createForeignObject geom.geometryCache posX posY name } ))
-  GetMorphismName idx1 idx2 -> 
-    RaiseComponent $ modalInputComponent "What is the name of this morphism?" "Morphism name" >>= (\name -> pure $ Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) $ geom { geometryCache = createForeignMorphism geom.geometryCache idx1 idx2 name } )
+data UpdateAction
+  = UpdateCreateObject Int Int String
+  | UpdateCreateMorphism Int Int String
+  | UpdateComposeMorphisms Int Int String
+  | NoUpdate
+
+updateStateCache :: Category -> GeometryState -> UpdateAction -> Maybe (Tuple Category GeometryState)
+updateStateCache category geom action = case action of
+  UpdateCreateObject posX posY name -> Just $ Tuple (category { objects = snoc category.objects (Object name) }) $ geom { geometryCache = createForeignObject geom.geometryCache posX posY name }
+  UpdateCreateMorphism idx1 idx2 name -> Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) $ geom { geometryCache = createForeignMorphism geom.geometryCache idx1 idx2 name }
     where
       obj1 = category.objects !! idx1
       obj2 = category.objects !! idx2
-      newMorphism = createMorphism <$> obj1 <*> obj2 
-  GetCompositionName idx1 idx2 -> 
-    RaiseComponent $ modalInputComponent "What is the name of this composed morphism?" "Morphism name" >>= (\name -> pure $ Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton composedMorphism) }) ( geom { geometryCache = fromMaybe geom.geometryCache $ createForeignMorphism geom.geometryCache <$> composedIdx1 <*> composedIdx2 <*> Just name }))
+      newMorphism = createMorphism <$> obj1 <*> obj2
+  UpdateComposeMorphisms idx1 idx2 name -> Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton composedMorphism) }) ( geom { geometryCache = fromMaybe geom.geometryCache $ createForeignMorphism geom.geometryCache <$> composedIdx1 <*> composedIdx2 <*> Just name })
     where
       mor1 = category.morphisms !! idx1
       mor2 = category.morphisms !! idx2
       composedMorphism = join $ composeMorphisms <$> mor1 <*> mor2
       composedIdx1 = join $ (\(Morphism (Tuple obj1 _)) -> elemIndex obj1 category.objects) <$> composedMorphism
       composedIdx2 = join $ (\(Morphism (Tuple _ obj2)) -> elemIndex obj2 category.objects) <$> composedMorphism
-    
+  NoUpdate -> Just $ Tuple category geom
+
+handleForeignAction :: Category -> GeometryState -> ForeignAction -> HandleActionOutput
+handleForeignAction category geom action = case action of
+  CreateObject posX posY name -> NewState $ updateStateCache category geom (UpdateCreateObject posX posY name)
+  CreateMorphism idx1 idx2 name -> NewState $ updateStateCache category geom (UpdateCreateMorphism idx1 idx2 name)
+  ComposeMorphisms idx1 idx2 name -> NewState $ updateStateCache category geom (UpdateCreateMorphism idx1 idx2 name)
+  StartMorphism idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startMorphism geom.geometryCache idx })
+  StartDragging idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startDragging geom.geometryCache idx })
+  StopDragging -> NewState $ Just $ Tuple category ( geom { geometryCache = stopDragging geom.geometryCache })
+  GetObjectName posX posY -> RaiseComponent $ modalInputComponent "What is the name of this object?" "Object name" >>= (\name -> pure $ updateStateCache category geom $ UpdateCreateObject posX posY name)
+  GetMorphismName idx1 idx2 -> RaiseComponent $ modalInputComponent "What is the name of this morphism?" "Morphism name" >>= (\name -> pure $ updateStateCache category geom $ UpdateCreateMorphism idx1 idx2 name)
+  GetCompositionName idx1 idx2 -> RaiseComponent $ modalInputComponent "What is the name of this composed morphism?" "Morphism name" >>= (\name -> pure $ updateStateCache category geom $ UpdateComposeMorphisms idx1 idx2 name)
   NoAction -> NewState $ Just $ Tuple category geom
 
 foreign import data Context2d :: Type
