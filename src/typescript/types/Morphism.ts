@@ -1,4 +1,4 @@
-import { Circle, Line } from "@thi.ng/geom";
+import { Circle, Line, Path } from "@thi.ng/geom";
 
 export interface MorphismGeometry {
     id: number;
@@ -7,5 +7,5 @@ export interface MorphismGeometry {
     name: string;
     arrowhead1: Line;
     arrowhead2: Line;
-    shape: Line;
+    shape: Line | Path;
 }

@@ -1,7 +1,8 @@
 import {
     arc,
+    asCubic,
     Circle,
-    circle, line, text,
+    circle, line, pathFromCubics, text,
 } from "@thi.ng/geom";
 import { draw } from "@thi.ng/hiccup-canvas";
 import {
@@ -121,7 +122,8 @@ export const onMouseMove = (
             cache.dragging.shape.pos = mouse;
         }
         cache.morphisms.map(l => {
-            const { arrowhead1, arrowhead2, shape } = getMorphismShapes(l.from, l.to);
+            const matchingIsomorphism = cache.morphisms.some(j => j.from === l.to && j.to === l.from);
+            const { arrowhead1, arrowhead2, shape } = getMorphismShapes(l.from, l.to, matchingIsomorphism);
             l.arrowhead1 = arrowhead1;
             l.arrowhead2 = arrowhead2;
             l.shape = shape;
@@ -142,28 +144,47 @@ export const createObject = (cache: GeometryCache, posX: number, posY: number, n
     return cache;
 }
 
-const getMorphismShapes = (from: Circle, to: Circle): Pick<MorphismGeometry, "arrowhead1" | "arrowhead2" | "shape"> => {
-    const angle = (Math.atan2(to.pos[1] - from.pos[1], to.pos[0] - from.pos[0]) * (180 / Math.PI) + 360) % 360;
-    const modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
-    const modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
-    const newEndpoint = [to.pos[0] - modifiedXDist, to.pos[1] - modifiedYDist];
-    const arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 10];
-    const arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 10];
-    const arrowhead1 = line(newEndpoint, arrowheadPoint1, {});
-    const arrowhead2 = line(newEndpoint, arrowheadPoint2, {});
-    const shape = line([from.pos[0] + modifiedXDist, from.pos[1] + modifiedYDist], newEndpoint, { weight: 1 });
-    return {
-        arrowhead1,
-        arrowhead2,
-        shape
-    };
+const getMorphismShapes = (from: Circle, to: Circle, isomorphismExists: boolean): Pick<MorphismGeometry, "arrowhead1" | "arrowhead2" | "shape"> => {
+    if (from !== to) {
+        const angle = (Math.atan2(to.pos[1] - from.pos[1], to.pos[0] - from.pos[0]) * (180 / Math.PI) + 360) % 360;
+        const modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
+        const modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
+        const isomorphismModifierX = isomorphismExists ? Math.cos(((90 + angle) % 360) * Math.PI / 180) * 8 : 0;
+        const isomorphismModifierY = isomorphismExists ? Math.sin(((90 + angle) % 360) * Math.PI / 180) * 8 : 0;
+        const newEndpoint = [to.pos[0] - modifiedXDist + isomorphismModifierX, to.pos[1] - modifiedYDist + isomorphismModifierY];
+        const arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 10];
+        const arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 10];
+        const arrowhead1 = line(newEndpoint, arrowheadPoint1, {});
+        const arrowhead2 = line(newEndpoint, arrowheadPoint2, {});
+        const shape = line([from.pos[0] + modifiedXDist + isomorphismModifierX, from.pos[1] + modifiedYDist + isomorphismModifierY], newEndpoint, { weight: 1 });
+        return {
+            arrowhead1,
+            arrowhead2,
+            shape
+        };
+    } else {
+        const morphismArc = arc([from.pos[0], from.pos[1] - 15], 10, Math.PI / 2 + 1, 0, Math.PI * 2 - 2);
+        const radiusLength = [10 * Math.cos(Math.PI / 2 - 1), 10 * Math.sin(Math.PI / 2 - 1)];
+        const endpoint = [from.pos[0] + radiusLength[0], from.pos[1] - 15 + radiusLength[1]];
+        const rotationFactor = Math.PI * 2 - 2 - Math.PI / 4;
+        const arrowheadPoint1 = [endpoint[0] + 8 * Math.cos(Math.PI - 1 + rotationFactor), endpoint[1] + 8 * Math.sin(Math.PI - 1 + rotationFactor)];
+        const arrowheadPoint2 = [endpoint[0] + 8 * Math.cos(Math.PI / 2 - 1 + rotationFactor), endpoint[1] + 8 * Math.sin(Math.PI / 2 - 1 + rotationFactor)];
+        const arrowhead1 = line(endpoint, arrowheadPoint1, { weight: 1, stroke: "#000" });
+        const arrowhead2 = line(endpoint, arrowheadPoint2, { weight: 1, stroke: "#000" });
+        const shape = pathFromCubics(asCubic(morphismArc), { weight: 1, stroke: "#000" });
+        return {
+            arrowhead1,
+            arrowhead2,
+            shape
+        };
+    }
 };
 
 export const createMorphism = (cache: GeometryCache, idx1: number, idx2: number, name: string): GeometryCache => {
     console.log("Creating morphism");
     const from = cache.objects[idx1];
     const to = cache.objects[idx2];
-    const { arrowhead1, arrowhead2, shape } = getMorphismShapes(from.shape, to.shape);
+    const { arrowhead1, arrowhead2, shape } = getMorphismShapes(from.shape, to.shape, false);
     cache.morphisms.push({
         id: cache.objects.length + 1,
         from: cache.objects[idx1].shape,
@@ -277,6 +298,12 @@ export const render = (ctx: CanvasRenderingContext2D) => (cache: GeometryCache) 
             const midpoint = [(l.from.pos[0] + l.to.pos[0]) / 2, (l.from.pos[1] + l.to.pos[1]) / 2];
             const modifiedAngle = (angle + 270) % 360;
             const textPos = [midpoint[0] + (20 * Math.cos(modifiedAngle * Math.PI / 360)), midpoint[1] + (20 * Math.sin(modifiedAngle * Math.PI / 360))];
+            draw(ctx, l.arrowhead1);
+            draw(ctx, l.arrowhead2);
+            draw(ctx, l.shape);
+            draw(ctx, text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" }));
+        } else {
+            const textPos = [l.from.pos[0], l.from.pos[1] - 30];
             draw(ctx, l.arrowhead1);
             draw(ctx, l.arrowhead2);
             draw(ctx, l.shape);

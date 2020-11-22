@@ -1,4 +1,4 @@
-import { closestPoint, pointInside } from "@thi.ng/geom";
+import { closestPoint, Line, pointInside } from "@thi.ng/geom";
 import { Vec, dist } from "@thi.ng/vectors"
 import { findLast } from "./helpers/findLast";
 import { minBy } from './helpers/minBy';
@@ -53,7 +53,7 @@ export const getMouseTarget = (
         }
     }
     {
-        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.map(l => ({ geometry: l, closest: closestPoint(l.shape, mousePosition)! })));
+        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.filter(l => l instanceof Line).map(l => ({ geometry: l, closest: closestPoint(l.shape, mousePosition)! })));
 
         if (closestMorphism && distanceToMouse(closestMorphism.closest) < 10) {
             return {
@@ -98,7 +98,7 @@ export const getAllTargets = (
         } as MouseTarget)));
     }
     {
-        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.map(l => ({ geometry: l, closest: closestPoint(l.shape, mousePosition)! })));
+        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.filter(l => l instanceof Line).map(l => ({ geometry: l, closest: closestPoint(l.shape, mousePosition)! })));
 
         if (closestMorphism && distanceToMouse(closestMorphism.closest) < 10) {
             output.push({
