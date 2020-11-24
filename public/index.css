@@ -46,3 +46,16 @@ body {
     border-radius: 5px;
     padding: 5px;
 }
+
+.modalInputComponentCancel {
+    width: 20%;
+    height: 40px;
+    border: 3px solid black;
+    border-radius: 3px;
+    padding: 5px;
+    margin-top: 20px;
+}
+
+.modalInputComponentCancel:hover {
+    background-color: #ddd;
+}

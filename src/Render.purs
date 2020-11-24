@@ -5,10 +5,11 @@ import Prim
 
 import Category.Main (Category, Object(..), Morphism(..), composeMorphisms, createMorphism, emptyCategory)
 import Concur.Core (Widget)
+import Concur.Core.Props (filterProp)
 import Concur.React (HTML)
 import Concur.React.DOM (El)
 import Concur.React.DOM as D
-import Concur.React.Props (onMouseDown, onMouseMove, onMouseUp)
+import Concur.React.Props (ReactProps, onMouseDown, onMouseMove, onMouseUp, unsafeTargetValue)
 import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
 import Control.Alt ((<|>))
@@ -16,19 +17,25 @@ import Data.Array (elemIndex, singleton, snoc, (!!))
 import Data.Default (class Default, def)
 import Data.Function.Uncurried (Fn1, Fn2, Fn3, Fn4, runFn4, runFn2, runFn1, mkFn3, mkFn2, mkFn1)
 import Data.Int (toNumber)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.Number.Format (toString)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst, snd)
 import Effect (Effect)
 import Effect.Class (liftEffect)
+import Effect.Class.Console (log)
 import Effect.Unsafe (unsafePerformEffect)
+import Halogen.HTML.Events (onKeyDown)
 import React.Ref (NativeNode, Ref)
 import React.Ref as Ref
-import React.SyntheticEvent (SyntheticMouseEvent)
+import React.SyntheticEvent (SyntheticEvent_, SyntheticKeyboardEvent, SyntheticMouseEvent)
 import Unsafe.Coerce (unsafeCoerce)
+import Web.DOM.Document (toNonElementParentNode)
+import Web.DOM.NonElementParentNode (getElementById)
 import Web.HTML (window)
-import Web.HTML.Window (innerHeight, innerWidth)
+import Web.HTML.HTMLDocument (toDocument)
+import Web.HTML.HTMLElement (focus, fromElement)
+import Web.HTML.Window (document, innerHeight, innerWidth)
 
 -- | Stuff the ts side of things can tell us to do
 data ForeignAction
@@ -104,9 +111,24 @@ handleForeignAction category geom action = case action of
   StartMorphism idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startMorphism geom.geometryCache idx })
   StartDragging idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startDragging geom.geometryCache idx })
   StopDragging -> NewState $ Just $ Tuple category ( geom { geometryCache = stopDragging geom.geometryCache })
-  GetObjectName posX posY -> RaiseComponent $ modalInputComponent "What is the name of this object?" "Object name" >>= (\name -> pure $ updateStateCache category geom $ UpdateCreateObject posX posY name)
-  GetMorphismName idx1 idx2 -> RaiseComponent $ modalInputComponent "What is the name of this morphism?" "Morphism name" >>= (\name -> pure $ updateStateCache category geom $ UpdateCreateMorphism idx1 idx2 name)
-  GetCompositionName idx1 idx2 -> RaiseComponent $ modalInputComponent "What is the name of this composed morphism?" "Morphism name" >>= (\name -> pure $ updateStateCache category geom $ UpdateComposeMorphisms idx1 idx2 name)
+  GetObjectName posX posY -> RaiseComponent $ modalInputComponent "What is the name of this object?" "Object name" <#> handleReceivedName category geom
+    where
+      handleReceivedName :: Category -> GeometryState -> Maybe String -> Maybe (Tuple Category GeometryState)
+      handleReceivedName c g rawName = case rawName of
+        (Just name) -> updateStateCache c g $ UpdateCreateObject posX posY name
+        (Nothing) -> Just $ Tuple c g
+  GetMorphismName idx1 idx2 -> RaiseComponent $ modalInputComponent "What is the name of this morphism?" "Morphism name" <#> handleReceivedName category geom
+    where
+      handleReceivedName :: Category -> GeometryState -> Maybe String -> Maybe (Tuple Category GeometryState)
+      handleReceivedName c g rawName = case rawName of
+        (Just name) -> updateStateCache c g $ UpdateCreateMorphism idx1 idx2 name
+        (Nothing) -> Just $ Tuple c g
+  GetCompositionName idx1 idx2 -> RaiseComponent $ modalInputComponent "What is the name of this composed morphism?" "Morphism name" <#> handleReceivedName category geom
+    where
+      handleReceivedName :: Category -> GeometryState -> Maybe String -> Maybe (Tuple Category GeometryState)
+      handleReceivedName c g rawName = case rawName of
+        (Just name) -> updateStateCache c g $ UpdateComposeMorphisms idx1 idx2 name
+        (Nothing) -> Just $ Tuple c g
   NoAction -> NewState $ Just $ Tuple category geom
 
 foreign import data Context2d :: Type
@@ -199,17 +221,31 @@ data HandleActionOutput
   = NewState (Maybe (Tuple Category GeometryState))
   | RaiseComponent (Widget HTML (Maybe (Tuple Category GeometryState)))
 
-modalInputComponent :: String -> String -> Widget HTML String
+focusInputById :: String -> Effect Unit
+focusInputById id = window >>= document >>= toDocument >>> toNonElementParentNode >>> getElementById id >>= case _ of
+  Nothing -> pure unit
+  Just elem -> pure unit <* log "blah" <* (sequence $ focus <$> fromElement elem)
+
+modalInputComponent :: String -> String -> Widget HTML (Maybe String)
 modalInputComponent question placeholder = do 
-  e <- D.div [ P.className "modalInputComponentBackground" ] 
+  e <- D.div [ P.className "modalInputComponentBackground", Nothing <$ onKeyEscape ]
     [ D.div [ P.className "modalInputComponentBody" ] 
       [ D.h2 [ P.className "modalInputComponentQuestion" ] [ D.text question ]
-      , D.input $ [P.onKeyEnter, P.placeholder placeholder, P.className "modalInputComponentInput" ] 
-      ] 
+      , D.input  [ Just <$> P.onKeyEnter, P.placeholder placeholder, P.className "modalInputComponentInput", P._id "modalInputComponentInput" ]
+      , D.button [ Nothing <$ P.onClick, P.className "modalInputComponentCancel" ] [ D.text "Close" ]
+      ]
     ]
-  new <- pure $ P.unsafeTargetValue e
-  liftEffect (P.resetTargetValue "" e)
+  new <- pure $ P.unsafeTargetValue <$> e
+  _ <- liftEffect $ sequence $ P.resetTargetValue "" <$> e
+  liftEffect $ focusInputById "modalInputComponentInput"
   pure new
+    where
+      onKeyEscape :: ReactProps SyntheticKeyboardEvent
+      onKeyEscape = filterProp isEscapeEvent P.onKeyDown
+      isEscapeEvent :: SyntheticKeyboardEvent -> Boolean
+      isEscapeEvent e = e'.which == 27 || e'.keyCode == 27
+        where
+          e' = unsafeCoerce e
 
 canvasComponent :: forall a. Category -> GeometryState -> Widget HTML a
 canvasComponent category st = do
