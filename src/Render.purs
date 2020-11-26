@@ -93,14 +93,14 @@ updateStateCache category geom action = case action of
     where
       obj1 = category.objects !! idx1
       obj2 = category.objects !! idx2
-      newMorphism = createMorphism <$> obj1 <*> obj2
+      newMorphism = createMorphism <$> obj1 <*> obj2 <*> Just name
   UpdateComposeMorphisms idx1 idx2 name -> Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton composedMorphism) }) ( geom { geometryCache = fromMaybe geom.geometryCache $ createForeignMorphism geom.geometryCache <$> composedIdx1 <*> composedIdx2 <*> Just name })
     where
       mor1 = category.morphisms !! idx1
       mor2 = category.morphisms !! idx2
       composedMorphism = join $ composeMorphisms <$> mor1 <*> mor2
-      composedIdx1 = join $ (\(Morphism (Tuple obj1 _)) -> elemIndex obj1 category.objects) <$> composedMorphism
-      composedIdx2 = join $ (\(Morphism (Tuple _ obj2)) -> elemIndex obj2 category.objects) <$> composedMorphism
+      composedIdx1 = join $ (\(Morphism f) -> elemIndex f.from category.objects) <$> composedMorphism
+      composedIdx2 = join $ (\(Morphism f) -> elemIndex f.to category.objects) <$> composedMorphism
   NoUpdate -> Just $ Tuple category geom
 
 handleForeignAction :: Category -> GeometryState -> ForeignAction -> HandleActionOutput
