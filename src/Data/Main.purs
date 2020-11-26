@@ -1,63 +1,55 @@
 module Category.Main where
 
-import Data.Exists
+import Category.Types
 import Data.Maybe
-import Data.Tuple
 import Prelude
 
+import Category.CategoryEquivalence (categoriesEquivalent)
+import Data.Array (snoc)
 import Data.Foldable (foldl)
-import Data.Newtype (class Newtype)
-
-newtype Object = Object String
-
-derive instance eqObject :: Eq Object
-
-derive instance newtypeObject :: Newtype Object _
-
-instance showObject :: Show Object where
-  show (Object a) = a 
-
-newtype Morphism = Morphism 
-  { from :: Object
-  , to :: Object
-  , name :: String
-  }
-
-derive instance eqMorphism :: Eq Morphism
-
-derive instance newtypeMorphism :: Newtype Morphism _
+import Data.Newtype (over, under, unwrap)
+import Data.Tuple (Tuple(..), snd)
+import Partial.Unsafe (unsafePartial)
 
 createMorphism :: Object -> Object -> String -> Morphism
 createMorphism a b name = Morphism ({ from: a, to: b, name: name })
 
-instance showMorphism :: Show Morphism where
-  show (Morphism f) = show f.from <> " -> " <> show f.to
-
 composeMorphisms :: Morphism -> Morphism -> Maybe Morphism
 composeMorphisms (Morphism f) (Morphism g) = if f.to == g.from then Just (Morphism { from: f.from, to: g.to, name: f.name <> " o " <> g.name }) else Nothing
-
-type Category =
-  { objects :: Array Object
-  , morphisms :: Array Morphism
-  }
 
 emptyCategory :: Category
 emptyCategory =
   { objects: []
   , morphisms: []
+  , name: ""
   }
 
-type World =
-  { categories :: Array Category
-  , functors :: Array CFunctor
-  }
+createFunctor :: Category -> Category -> String -> Boolean -> Maybe CFunctor
+createFunctor c d name contra = if categoriesEquivalent c d then Just $ CFunctor { from: c, to: d, name: name, contravariant: contra } else Nothing
 
-newtype CFunctor = CFunctor
-  { from :: Category
-  , to :: Category
-  , name :: String
-  , contravariant :: Boolean
-  }
+createFunctorAutomatic :: Category -> String -> Boolean -> World -> World
+createFunctorAutomatic c name contra world = world { categories = snoc world.categories newCategory, functors = snoc world.functors newFunctor }
+  where
+
+    newCategory :: Category
+    newCategory =
+      { objects: c.objects <#> convertObject
+      , morphisms: c.morphisms <#> over Morphism (\x -> (under Morphism (flip flipContra contra) x) { from = convertObject x.from, to = convertObject x.to, name = name <> "(" <> x.name <> ")" })
+      , name: name <> "(" <> c.name <> ")"
+      }
+
+    -- | This is safe because the new category is guaranteed to have the same structure
+    newFunctor :: CFunctor
+    newFunctor = unsafePartial $ fromJust $ createFunctor c newCategory name contra
+
+    flipContra :: Morphism -> Boolean -> Morphism
+    flipContra f con = Morphism $ (unwrap f) { from = if con then to else from, to = if con then from else to }
+      where
+        to = unwrap >>> _.to $ f
+        from = unwrap >>> _.from $ f
+
+    convertObject :: Object -> Object
+    convertObject = over Object (\x -> name <> "(" <> x <> ")")
 
 isMorphismInCategory :: Category -> Maybe Object -> Maybe Object -> Boolean
 isMorphismInCategory _ Nothing Nothing = true

@@ -3,7 +3,8 @@ module Render where
 import Prelude
 import Prim
 
-import Category.Main (Category, Object(..), Morphism(..), composeMorphisms, createMorphism, emptyCategory)
+import Category.Main (composeMorphisms, createMorphism, emptyCategory)
+import Category.Types (Category, Object(..), Morphism(..))
 import Concur.Core (Widget)
 import Concur.Core.Props (filterProp)
 import Concur.React (HTML)

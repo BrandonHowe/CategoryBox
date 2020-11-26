@@ -2,7 +2,7 @@ module Category.CategoryEquivalence where
 
 import Prelude
 
-import Category.Main (Category, Morphism(..), Object(..))
+import Category.Types (Category, Morphism(..), Object(..))
 import Data.Array (delete, (:), snoc, zip)
 import Data.Foldable (find, foldl)
 import Data.Maybe (Maybe, fromMaybe)
@@ -33,7 +33,7 @@ replaceCategoryObjects category replacements = category
 categoriesEquivalent :: Category -> Category -> Boolean
 categoriesEquivalent c d = foldl (\acc cur -> acc || categoriesEqual cur d) false (allObjectOrderings =<< (replaceCategoryObjects c <$> allObjectReplacements c d))
   where
-    allObjectOrderings = (\x -> (\y -> x { objects = y }) <$> permutations x.objects)
+    allObjectOrderings = (\x -> x { objects = _ } <$> permutations x.objects)
 
     permutations :: forall a. Eq a => Array a -> Array (Array a)
     permutations [] = [[]]
