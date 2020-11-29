@@ -231,11 +231,11 @@ type GeometryState =
 
 data Query a
   = LoadScene GeometryState (Ref NativeNode) a
-  | Rerender (Ref NativeNode) a
+  | Rerender (Ref NativeNode)
 
 data Action = 
-  Render (Ref NativeNode) 
-  | HandleEvent GeomEventHandler SyntheticMouseEvent (Ref NativeNode)
+  Render
+  | HandleEvent GeomEventHandler SyntheticMouseEvent
   | AddCategoryPress
   | IncreaseCategory
   | DecreaseCategory
@@ -285,16 +285,16 @@ canvasComponent world st = do
       , P.height $ unsafePerformEffect $ (window >>= innerHeight) <#> ((flip sub 6) >>> toNumber >>> toString)
       , P._id $ "leCanvas"
       , P.ref (Ref.fromRef canvasRef)
-      , (\event -> HandleEvent handleMouseDown event canvasRef) <$> onMouseDown
-      , (\event -> HandleEvent handleMouseMove event canvasRef) <$> onMouseMove
-      , (\event -> HandleEvent handleMouseUp event canvasRef) <$> onMouseUp
+      , (\event -> HandleEvent handleMouseDown event) <$> onMouseDown
+      , (\event -> HandleEvent handleMouseMove event) <$> onMouseMove
+      , (\event -> HandleEvent handleMouseUp event) <$> onMouseUp
       ] []
     , D.button [DecreaseCategory <$ P.onClick] [D.text "-"]
     , D.button [AddCategoryPress <$ P.onClick] [D.text "Add category"]
     , D.button [IncreaseCategory <$ P.onClick] [D.text "+"]
     ]
 
-  newState <- liftEffect $ handleAction st event
+  newState <- liftEffect $ handleAction st event canvasRef
 
   _ <- liftEffect $ logShow world
 
@@ -310,21 +310,32 @@ canvasComponent world st = do
 
   handleQuery :: forall b. Query b -> Effect (Maybe HandleActionOutput)
   handleQuery query = case query of
-    LoadScene newState ref a -> handleAction updatedState (Render ref)
+    LoadScene newState ref a -> handleAction updatedState Render ref
       where
         updatedState = st { context = newState.context, geometryCaches = newState.geometryCaches }
-    Rerender ref a -> handleAction st (Render ref)
+    Rerender ref -> handleAction st Render ref
 
-  handleAction :: GeometryState -> Action -> Effect (Maybe HandleActionOutput)
-  handleAction state action = case action of
-    Render ref -> do
+  handleAction :: GeometryState -> Action -> Ref NativeNode -> Effect (Maybe HandleActionOutput)
+  handleAction state action ref = case action of
+    Render -> do
       _ <- withContext ref \ctx -> renderCanvas ctx geometryCache
       pure $ Just $ NewState Nothing
-    HandleEvent handler event ref -> (\val -> handleForeignAction world state <$> val) <$> (withContext ref (\ctx -> handler ctx event geometryCache)) <* (handleAction state (Render ref))
-    AddCategoryPress -> pure $ Just $ ReplaceCategory $ Tuple (world { categories = snoc world.categories emptyCategory }) (st { geometryCaches = snoc st.geometryCaches $ unsafePerformEffect emptyGeometryCache, currentCategory = Just $ length world.categories })
-    IncreaseCategory -> pure $ Just $ ReplaceCategory $ Tuple world (st { currentCategory = if (fromMaybe false comparisonValue) then st.currentCategory else flip (+) 1 <$> st.currentCategory })
+    HandleEvent handler event -> (\val -> handleForeignAction world state <$> val) <$> (withContext ref (\ctx -> handler ctx event geometryCache)) <* (handleQuery (Rerender ref))
+    AddCategoryPress -> 
+      (pure $ Just $ ReplaceCategory $ Tuple (world { categories = snoc world.categories emptyCategory }) newState)
+      <* (handleAction newState Render ref)
+      where
+        newState = st { geometryCaches = snoc st.geometryCaches $ unsafePerformEffect emptyGeometryCache, currentCategory = Just $ length world.categories }
+    IncreaseCategory -> 
+      (pure $ Just $ ReplaceCategory $ Tuple world newState)
+      <* (handleAction newState Render ref)
       where
         comparisonValue = ((==) <$> st.currentCategory) <*> (Just $ length world.categories - 1)
-    DecreaseCategory -> pure $ Just $ ReplaceCategory $ Tuple world (st { currentCategory = if st.currentCategory == Just 0 then st.currentCategory else flip (-) 1 <$> st.currentCategory })
+        newState = st { currentCategory = if (fromMaybe false comparisonValue) then st.currentCategory else flip (+) 1 <$> st.currentCategory }
+    DecreaseCategory -> 
+      (pure $ Just $ ReplaceCategory $ Tuple world newState)
+      <* (handleAction newState Render ref)
+      where
+        newState = st { currentCategory = if st.currentCategory == Just 0 then st.currentCategory else flip (-) 1 <$> st.currentCategory }
     where
       geometryCache = fromMaybe (unsafePerformEffect emptyGeometryCache) $ ((!!) state.geometryCaches =<< state.currentCategory)
