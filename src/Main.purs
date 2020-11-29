@@ -24,6 +24,7 @@ main = do
   logShow $ createFunctor cat1 cat3 "F" false
   logShow $ createFunctor cat1 cat2 "G" false
   logShow $ createFunctorAutomatic cat1 "F" false myWorld
+  render
   where
     myObject1 = Object "Blah"
     myObject2 = Object "5"

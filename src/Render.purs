@@ -4,7 +4,7 @@ import Prelude
 import Prim
 
 import Category.Main (composeMorphisms, createMorphism, emptyCategory)
-import Category.Types (Category, Object(..), Morphism(..))
+import Category.Types (Category, Morphism(..), Object(..), World)
 import Concur.Core (Widget)
 import Concur.Core.Props (filterProp)
 import Concur.React (HTML)
@@ -14,7 +14,7 @@ import Concur.React.Props (ReactProps, onMouseDown, onMouseMove, onMouseUp, unsa
 import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
 import Control.Alt ((<|>))
-import Data.Array (elemIndex, singleton, snoc, (!!))
+import Data.Array (elemIndex, length, singleton, snoc, updateAt, (!!))
 import Data.Default (class Default, def)
 import Data.Function.Uncurried (Fn1, Fn2, Fn3, Fn4, runFn4, runFn2, runFn1, mkFn3, mkFn2, mkFn1)
 import Data.Int (toNumber)
@@ -24,7 +24,7 @@ import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst, snd)
 import Effect (Effect)
 import Effect.Class (liftEffect)
-import Effect.Class.Console (log)
+import Effect.Class.Console (log, logShow)
 import Effect.Unsafe (unsafePerformEffect)
 import Halogen.HTML.Events (onKeyDown)
 import React.Ref (NativeNode, Ref)
@@ -87,50 +87,72 @@ data UpdateAction
   | UpdateComposeMorphisms Int Int String
   | NoUpdate
 
-updateStateCache :: Category -> GeometryState -> UpdateAction -> Maybe (Tuple Category GeometryState)
-updateStateCache category geom action = case action of
-  UpdateCreateObject posX posY name -> Just $ Tuple (category { objects = snoc category.objects (Object name) }) $ geom { geometryCache = createForeignObject geom.geometryCache posX posY name }
-  UpdateCreateMorphism idx1 idx2 name -> Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) }) $ geom { geometryCache = createForeignMorphism geom.geometryCache idx1 idx2 name }
+updateStateCache :: World -> GeometryState -> UpdateAction -> Maybe (Tuple World GeometryState)
+updateStateCache world geom action = case action of
+  UpdateCreateObject posX posY name -> Just
+    $ Tuple (updateWorldCategory (category { objects = snoc category.objects (Object name) }) world )
+    $ updateGeometryState (createForeignObject geometryCache posX posY name) geom
+  UpdateCreateMorphism idx1 idx2 name -> Just 
+    $ Tuple (updateWorldCategory (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton newMorphism) } ) world) 
+    $ updateGeometryState (createForeignMorphism geometryCache idx1 idx2 name) geom
     where
       obj1 = category.objects !! idx1
       obj2 = category.objects !! idx2
       newMorphism = createMorphism <$> obj1 <*> obj2 <*> Just name
-  UpdateComposeMorphisms idx1 idx2 name -> Just $ Tuple (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton composedMorphism) }) ( geom { geometryCache = fromMaybe geom.geometryCache $ createForeignMorphism geom.geometryCache <$> composedIdx1 <*> composedIdx2 <*> Just name })
+  UpdateComposeMorphisms idx1 idx2 name -> Just 
+    $ Tuple (updateWorldCategory (category { morphisms = category.morphisms <> (fromMaybe [] $ sequence $ singleton composedMorphism) }) world) 
+    $ updateGeometryState (fromMaybe geometryCache $ createForeignMorphism geometryCache <$> composedIdx1 <*> composedIdx2 <*> Just name) geom
     where
       mor1 = category.morphisms !! idx1
       mor2 = category.morphisms !! idx2
       composedMorphism = join $ composeMorphisms <$> mor1 <*> mor2
       composedIdx1 = join $ (\(Morphism f) -> elemIndex f.from category.objects) <$> composedMorphism
       composedIdx2 = join $ (\(Morphism f) -> elemIndex f.to category.objects) <$> composedMorphism
-  NoUpdate -> Just $ Tuple category geom
+  NoUpdate -> Just $ Tuple world geom
+  where
+    category = fromMaybe emptyCategory $ ((!!) world.categories =<< geom.currentCategory)
 
-handleForeignAction :: Category -> GeometryState -> ForeignAction -> HandleActionOutput
-handleForeignAction category geom action = case action of
-  CreateObject posX posY name -> NewState $ updateStateCache category geom (UpdateCreateObject posX posY name)
-  CreateMorphism idx1 idx2 name -> NewState $ updateStateCache category geom (UpdateCreateMorphism idx1 idx2 name)
-  ComposeMorphisms idx1 idx2 name -> NewState $ updateStateCache category geom (UpdateCreateMorphism idx1 idx2 name)
-  StartMorphism idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startMorphism geom.geometryCache idx })
-  StartDragging idx -> NewState $ Just $ Tuple category ( geom { geometryCache = startDragging geom.geometryCache idx })
-  StopDragging -> NewState $ Just $ Tuple category ( geom { geometryCache = stopDragging geom.geometryCache })
-  GetObjectName posX posY -> RaiseComponent $ modalInputComponent "What is the name of this object?" "Object name" <#> handleReceivedName category geom
+    geometryCache = fromMaybe (unsafePerformEffect emptyGeometryCache) $ ((!!) geom.geometryCaches =<< geom.currentCategory)
+
+    updateGeometryState :: GeometryCache -> GeometryState -> GeometryState
+    updateGeometryState cache state = state { geometryCaches = fromMaybe state.geometryCaches (join $ updateAt <$> state.currentCategory <*> Just cache <*> Just state.geometryCaches) }
+
+    updateWorldCategory :: Category -> World -> World
+    updateWorldCategory category world = world { categories = fromMaybe world.categories $ join $ updateAt <$> geom.currentCategory <*> Just category <*> Just world.categories }
+
+handleForeignAction :: World -> GeometryState -> ForeignAction -> HandleActionOutput
+handleForeignAction world geom action = case action of
+  CreateObject posX posY name -> NewState $ updateStateCache world geom (UpdateCreateObject posX posY name)
+  CreateMorphism idx1 idx2 name -> NewState $ updateStateCache world geom (UpdateCreateMorphism idx1 idx2 name)
+  ComposeMorphisms idx1 idx2 name -> NewState $ updateStateCache world geom (UpdateCreateMorphism idx1 idx2 name)
+  StartMorphism idx -> NewState $ Just $ Tuple world $ updateGeometryState (startMorphism geometryCache idx) geom
+  StartDragging idx -> NewState $ Just $ Tuple world $ updateGeometryState (startDragging geometryCache idx) geom
+  StopDragging -> NewState $ Just $ Tuple world $ updateGeometryState (stopDragging geometryCache) geom
+  GetObjectName posX posY -> RaiseComponent $ modalInputComponent "What is the name of this object?" "Object name" <#> handleReceivedName world geom
     where
-      handleReceivedName :: Category -> GeometryState -> Maybe String -> Maybe (Tuple Category GeometryState)
+      handleReceivedName :: World -> GeometryState -> Maybe String -> Maybe (Tuple World GeometryState)
       handleReceivedName c g rawName = case rawName of
         (Just name) -> updateStateCache c g $ UpdateCreateObject posX posY name
         (Nothing) -> Just $ Tuple c g
-  GetMorphismName idx1 idx2 -> RaiseComponent $ modalInputComponent "What is the name of this morphism?" "Morphism name" <#> handleReceivedName category geom
+  GetMorphismName idx1 idx2 -> RaiseComponent $ modalInputComponent "What is the name of this morphism?" "Morphism name" <#> handleReceivedName world geom
     where
-      handleReceivedName :: Category -> GeometryState -> Maybe String -> Maybe (Tuple Category GeometryState)
+      handleReceivedName :: World -> GeometryState -> Maybe String -> Maybe (Tuple World GeometryState)
       handleReceivedName c g rawName = case rawName of
         (Just name) -> updateStateCache c g $ UpdateCreateMorphism idx1 idx2 name
         (Nothing) -> Just $ Tuple c g
-  GetCompositionName idx1 idx2 -> RaiseComponent $ modalInputComponent "What is the name of this composed morphism?" "Morphism name" <#> handleReceivedName category geom
+  GetCompositionName idx1 idx2 -> RaiseComponent $ modalInputComponent "What is the name of this composed morphism?" "Morphism name" <#> handleReceivedName world geom
     where
-      handleReceivedName :: Category -> GeometryState -> Maybe String -> Maybe (Tuple Category GeometryState)
+      handleReceivedName :: World -> GeometryState -> Maybe String -> Maybe (Tuple World GeometryState)
       handleReceivedName c g rawName = case rawName of
         (Just name) -> updateStateCache c g $ UpdateComposeMorphisms idx1 idx2 name
         (Nothing) -> Just $ Tuple c g
-  NoAction -> NewState $ Just $ Tuple category geom
+  NoAction -> NewState $ Just $ Tuple world geom
+  where
+    category = fromMaybe emptyCategory $ (join $ (!!) world.categories <$> geom.currentCategory)
+    geometryCache = fromMaybe (unsafePerformEffect emptyGeometryCache) $ ((!!) geom.geometryCaches =<< geom.currentCategory)
+
+    updateGeometryState :: GeometryCache -> GeometryState -> GeometryState
+    updateGeometryState cache state = state { geometryCaches = fromMaybe state.geometryCaches (join $ updateAt <$> state.currentCategory <*> Just cache <*> Just state.geometryCaches) }
 
 foreign import data Context2d :: Type
 
@@ -185,7 +207,7 @@ handleMouseUp :: GeomEventHandler
 handleMouseUp = runFn4 handleMouseUpImpl def
 
 render :: Effect Unit
-render = runWidgetInDom "app" $ canvasComponent emptyCategory { context: Nothing, geometryCache: unsafePerformEffect emptyGeometryCache }
+render = runWidgetInDom "app" $ canvasComponent { categories: [emptyCategory], functors: [] } { context: Nothing, geometryCaches: [unsafePerformEffect emptyGeometryCache], currentCategory: Just 0 }
 
 foreign import resizeCanvas :: El -> Effect Unit
 
@@ -203,7 +225,8 @@ withContext ref comp = do
 
 type GeometryState =
   { context :: Maybe Context2d
-  , geometryCache :: GeometryCache
+  , geometryCaches :: Array GeometryCache
+  , currentCategory :: Maybe Int
   }
 
 data Query a
@@ -213,14 +236,18 @@ data Query a
 data Action = 
   Render (Ref NativeNode) 
   | HandleEvent GeomEventHandler SyntheticMouseEvent (Ref NativeNode)
+  | AddCategoryPress
+  | IncreaseCategory
+  | DecreaseCategory
 
 type Input = Unit
 
 type Output = Unit
 
 data HandleActionOutput
-  = NewState (Maybe (Tuple Category GeometryState))
-  | RaiseComponent (Widget HTML (Maybe (Tuple Category GeometryState)))
+  = NewState (Maybe (Tuple World GeometryState))
+  | RaiseComponent (Widget HTML (Maybe (Tuple World GeometryState)))
+  | ReplaceCategory (Tuple World GeometryState)
 
 focusInputById :: String -> Effect Unit
 focusInputById id = window >>= document >>= toDocument >>> toNonElementParentNode >>> getElementById id >>= case _ of
@@ -248,43 +275,56 @@ modalInputComponent question placeholder = do
         where
           e' = unsafeCoerce e
 
-canvasComponent :: forall a. Category -> GeometryState -> Widget HTML a
-canvasComponent category st = do
+canvasComponent :: forall a. World -> GeometryState -> Widget HTML a
+canvasComponent world st = do
   canvasRef <- liftEffect Ref.createNodeRef
   event <- D.div 
-    [ (\event -> HandleEvent handleMouseDown event canvasRef) <$> onMouseDown
-    , (\event -> HandleEvent handleMouseMove event canvasRef) <$> onMouseMove
-    , (\event -> HandleEvent handleMouseUp event canvasRef) <$> onMouseUp
-    , P._id $ "canvasDiv"
-    ]
+    [ P._id $ "canvasDiv" ]
     [ D.canvas
       [ P.width $ unsafePerformEffect $ (window >>= innerWidth) <#> (toNumber >>> toString)
       , P.height $ unsafePerformEffect $ (window >>= innerHeight) <#> ((flip sub 6) >>> toNumber >>> toString)
       , P._id $ "leCanvas"
       , P.ref (Ref.fromRef canvasRef)
+      , (\event -> HandleEvent handleMouseDown event canvasRef) <$> onMouseDown
+      , (\event -> HandleEvent handleMouseMove event canvasRef) <$> onMouseMove
+      , (\event -> HandleEvent handleMouseUp event canvasRef) <$> onMouseUp
       ] []
+    , D.button [DecreaseCategory <$ P.onClick] [D.text "-"]
+    , D.button [AddCategoryPress <$ P.onClick] [D.text "Add category"]
+    , D.button [IncreaseCategory <$ P.onClick] [D.text "+"]
     ]
 
   newState <- liftEffect $ handleAction st event
 
-  fromMaybe (canvasComponent category st) $ (\passedState -> case passedState of
-    (NewState state) -> canvasComponent (fromMaybe category $ fst <$> state) (fromMaybe st $ snd <$> state)
-    (RaiseComponent component) -> canvasComponent category st <|> component >>= \state -> canvasComponent (fromMaybe category $ fst <$> state) (fromMaybe st $ snd <$> state)
+  _ <- liftEffect $ logShow world
+
+  fromMaybe (canvasComponent world st) $ (\passedState -> case passedState of
+    (NewState state) -> canvasComponent (fromMaybe world $ fst <$> state) (fromMaybe st $ snd <$> state)
+    (RaiseComponent component) -> canvasComponent world st <|> component >>= \state -> canvasComponent (fromMaybe world $ fst <$> state) (fromMaybe st $ snd <$> state)
+    (ReplaceCategory new) -> canvasComponent (fst new) (snd new)
   ) <$> newState
 
   where
 
+  category = fromMaybe emptyCategory $ ((!!) world.categories =<< st.currentCategory)
+
   handleQuery :: forall b. Query b -> Effect (Maybe HandleActionOutput)
   handleQuery query = case query of
-    LoadScene newState ref a ->
-      let updatedState = st { context = newState.context, geometryCache = newState.geometryCache }
-      in handleAction updatedState (Render ref)
+    LoadScene newState ref a -> handleAction updatedState (Render ref)
+      where
+        updatedState = st { context = newState.context, geometryCaches = newState.geometryCaches }
     Rerender ref a -> handleAction st (Render ref)
 
   handleAction :: GeometryState -> Action -> Effect (Maybe HandleActionOutput)
   handleAction state action = case action of
     Render ref -> do
-      _ <- withContext ref \ctx -> renderCanvas ctx state.geometryCache
+      _ <- withContext ref \ctx -> renderCanvas ctx geometryCache
       pure $ Just $ NewState Nothing
-
-    HandleEvent handler event ref -> (\val -> handleForeignAction category state <$> val) <$> (withContext ref (\ctx -> handler ctx event state.geometryCache)) <* (handleAction state (Render ref))
+    HandleEvent handler event ref -> (\val -> handleForeignAction world state <$> val) <$> (withContext ref (\ctx -> handler ctx event geometryCache)) <* (handleAction state (Render ref))
+    AddCategoryPress -> pure $ Just $ ReplaceCategory $ Tuple (world { categories = snoc world.categories emptyCategory }) (st { geometryCaches = snoc st.geometryCaches $ unsafePerformEffect emptyGeometryCache, currentCategory = Just $ length world.categories })
+    IncreaseCategory -> pure $ Just $ ReplaceCategory $ Tuple world (st { currentCategory = if (fromMaybe false comparisonValue) then st.currentCategory else flip (+) 1 <$> st.currentCategory })
+      where
+        comparisonValue = ((==) <$> st.currentCategory) <*> (Just $ length world.categories - 1)
+    DecreaseCategory -> pure $ Just $ ReplaceCategory $ Tuple world (st { currentCategory = if st.currentCategory == Just 0 then st.currentCategory else flip (-) 1 <$> st.currentCategory })
+    where
+      geometryCache = fromMaybe (unsafePerformEffect emptyGeometryCache) $ ((!!) state.geometryCaches =<< state.currentCategory)
