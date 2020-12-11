@@ -14,7 +14,6 @@ export interface GeometryCache {
     objects: ObjectGeometry[];
     morphisms: MorphismGeometry[];
     camera: Mat23Like;
-    mouseDown: boolean;
     dragging?: ObjectGeometry;
     morphismStart?: ObjectGeometry;
     composing?: MorphismGeometry;

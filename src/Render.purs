@@ -1,20 +1,19 @@
 module Render where
 
 import Prelude
-import Prim
 
-import Category.Main (composeMorphisms, createMorphism, emptyCategory)
+import Category.Main (composeMorphisms, createMorphism, emptyCategory, getFunctorCategory)
 import Category.Types (Category, Morphism(..), Object(..), World)
 import Concur.Core (Widget)
 import Concur.Core.Props (filterProp)
 import Concur.React (HTML)
 import Concur.React.DOM (El)
 import Concur.React.DOM as D
-import Concur.React.Props (ReactProps, onMouseDown, onMouseMove, onMouseUp, unsafeTargetValue)
+import Concur.React.Props (ReactProps, onContextMenu, onMouseDown, onMouseMove, onMouseUp, onWheel, unsafeTargetValue)
 import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
 import Control.Alt ((<|>))
-import Data.Array (elemIndex, length, singleton, snoc, updateAt, (!!))
+import Data.Array (elemIndex, length, mapWithIndex, singleton, snoc, updateAt, (!!), (:))
 import Data.Default (class Default, def)
 import Data.Function.Uncurried (Fn1, Fn2, Fn3, Fn4, runFn4, runFn2, runFn1, mkFn3, mkFn2, mkFn1)
 import Data.Int (toNumber)
@@ -26,10 +25,11 @@ import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Class.Console (log, logShow)
 import Effect.Unsafe (unsafePerformEffect)
-import Halogen.HTML.Events (onKeyDown)
+import Prim.Boolean (False)
+import Prim.Boolean (False)
 import React.Ref (NativeNode, Ref)
 import React.Ref as Ref
-import React.SyntheticEvent (SyntheticEvent_, SyntheticKeyboardEvent, SyntheticMouseEvent)
+import React.SyntheticEvent (SyntheticEvent, SyntheticEvent_, SyntheticKeyboardEvent, SyntheticMouseEvent, SyntheticWheelEvent)
 import Unsafe.Coerce (unsafeCoerce)
 import Web.DOM.Document (toNonElementParentNode)
 import Web.DOM.NonElementParentNode (getElementById)
@@ -110,15 +110,15 @@ updateStateCache world geom action = case action of
       composedIdx2 = join $ (\(Morphism f) -> elemIndex f.to category.objects) <$> composedMorphism
   NoUpdate -> Just $ Tuple world geom
   where
-    category = fromMaybe emptyCategory $ ((!!) world.categories =<< geom.currentCategory)
+    category = getCurrentCategory world geom
 
-    geometryCache = fromMaybe (unsafePerformEffect emptyGeometryCache) $ ((!!) geom.geometryCaches =<< geom.currentCategory)
+    geometryCache = getCurrentCache geom
 
     updateGeometryState :: GeometryCache -> GeometryState -> GeometryState
-    updateGeometryState cache state = state { geometryCaches = fromMaybe state.geometryCaches (join $ updateAt <$> state.currentCategory <*> Just cache <*> Just state.geometryCaches) }
+    updateGeometryState cache state = state { geometryCaches = fromMaybe state.geometryCaches (updateAt state.currentCategory cache state.geometryCaches) }
 
     updateWorldCategory :: Category -> World -> World
-    updateWorldCategory category world = world { categories = fromMaybe world.categories $ join $ updateAt <$> geom.currentCategory <*> Just category <*> Just world.categories }
+    updateWorldCategory cat w = world { categories = fromMaybe world.categories $ updateAt geom.currentCategory cat w.categories }
 
 handleForeignAction :: World -> GeometryState -> ForeignAction -> HandleActionOutput
 handleForeignAction world geom action = case action of
@@ -148,11 +148,11 @@ handleForeignAction world geom action = case action of
         (Nothing) -> Just $ Tuple c g
   NoAction -> NewState $ Just $ Tuple world geom
   where
-    category = fromMaybe emptyCategory $ (join $ (!!) world.categories <$> geom.currentCategory)
-    geometryCache = fromMaybe (unsafePerformEffect emptyGeometryCache) $ ((!!) geom.geometryCaches =<< geom.currentCategory)
+    category = getCurrentCategory world geom
+    geometryCache = getCurrentCache geom
 
     updateGeometryState :: GeometryCache -> GeometryState -> GeometryState
-    updateGeometryState cache state = state { geometryCaches = fromMaybe state.geometryCaches (join $ updateAt <$> state.currentCategory <*> Just cache <*> Just state.geometryCaches) }
+    updateGeometryState cache state = state { geometryCaches = fromMaybe state.geometryCaches (updateAt state.currentCategory cache state.geometryCaches) }
 
 foreign import data Context2d :: Type
 
@@ -163,15 +163,22 @@ foreign import emptyGeometryCache :: Effect GeometryCache
 foreign import renderCanvas :: Context2d -> GeometryCache -> Effect Unit
 
 -- | Type of event handlers for the Scene component.
-type NativeGeomEventHandler
+type NativeGeomMouseEventHandler
   = Fn4 ForeignActionConfig Context2d SyntheticMouseEvent GeometryCache (Effect ForeignAction)
 
-type GeomEventHandler
+type NativeGeomWheelEventHandler
+  = Fn4 ForeignActionConfig Context2d SyntheticWheelEvent GeometryCache (Effect ForeignAction)
+
+type GeomMouseEventHandler
   = Context2d -> SyntheticMouseEvent -> GeometryCache -> Effect ForeignAction
 
-foreign import handleMouseUpImpl :: NativeGeomEventHandler
-foreign import handleMouseDownImpl :: NativeGeomEventHandler
-foreign import handleMouseMoveImpl :: NativeGeomEventHandler
+type GeomWheelEventHandler
+  = Context2d -> SyntheticWheelEvent -> GeometryCache -> Effect ForeignAction
+
+foreign import handleScrollImpl :: NativeGeomWheelEventHandler
+foreign import handleMouseUpImpl :: NativeGeomMouseEventHandler
+foreign import handleMouseDownImpl :: NativeGeomMouseEventHandler
+foreign import handleMouseMoveImpl :: NativeGeomMouseEventHandler
 foreign import createObjectImpl :: Fn4 GeometryCache Int Int String GeometryCache
 foreign import createMorphismImpl :: Fn4 GeometryCache Int Int String GeometryCache
 foreign import startMorphismImpl :: Fn2 GeometryCache Int GeometryCache
@@ -197,17 +204,27 @@ startComposing = runFn2 startComposingImpl
 stopDragging :: GeometryCache -> GeometryCache
 stopDragging = runFn1 stopDraggingImpl
 
-handleMouseDown :: GeomEventHandler
+handleMouseDown :: GeomMouseEventHandler
 handleMouseDown = runFn4 handleMouseDownImpl def
 
-handleMouseMove :: GeomEventHandler
+handleMouseMove :: GeomMouseEventHandler
 handleMouseMove = runFn4 handleMouseMoveImpl def
 
-handleMouseUp :: GeomEventHandler
+handleMouseUp :: GeomMouseEventHandler
 handleMouseUp = runFn4 handleMouseUpImpl def
 
+handleScroll :: GeomWheelEventHandler
+handleScroll = runFn4 handleScrollImpl def
+
 render :: Effect Unit
-render = runWidgetInDom "app" $ canvasComponent { categories: [emptyCategory], functors: [] } { context: Nothing, geometryCaches: [unsafePerformEffect emptyGeometryCache], currentCategory: Just 0 }
+render = runWidgetInDom "app" $ canvasComponent defaultWorld defaultState
+  where
+    functorCategory :: GeometryCache
+    functorCategory = createForeignObject (unsafePerformEffect emptyGeometryCache) 0 0 "Category 1"
+    defaultWorld :: World
+    defaultWorld = { categories: [emptyCategory], functors: [] }
+    defaultState :: GeometryState
+    defaultState = { context: Nothing, geometryCaches: [unsafePerformEffect emptyGeometryCache], mainGeometryCache: functorCategory, currentCategory: 0 }
 
 foreign import resizeCanvas :: El -> Effect Unit
 
@@ -226,7 +243,8 @@ withContext ref comp = do
 type GeometryState =
   { context :: Maybe Context2d
   , geometryCaches :: Array GeometryCache
-  , currentCategory :: Maybe Int
+  , mainGeometryCache :: GeometryCache
+  , currentCategory :: Int
   }
 
 data Query a
@@ -235,10 +253,10 @@ data Query a
 
 data Action = 
   Render
-  | HandleEvent GeomEventHandler SyntheticMouseEvent
+  | HandleMouseEvent GeomMouseEventHandler SyntheticMouseEvent
+  | HandleWheelEvent GeomWheelEventHandler SyntheticWheelEvent
   | AddCategoryPress
-  | IncreaseCategory
-  | DecreaseCategory
+  | SwitchCategoryTo Int
 
 type Input = Unit
 
@@ -248,6 +266,15 @@ data HandleActionOutput
   = NewState (Maybe (Tuple World GeometryState))
   | RaiseComponent (Widget HTML (Maybe (Tuple World GeometryState)))
   | ReplaceCategory (Tuple World GeometryState)
+
+getCurrentCategory :: World -> GeometryState -> Category
+getCurrentCategory world st = if st.currentCategory == 0 then functorCategory else fromMaybe functorCategory ((!!) world.categories (st.currentCategory - 1))
+  where
+    functorCategory :: Category
+    functorCategory = getFunctorCategory world
+
+getCurrentCache :: GeometryState -> GeometryCache
+getCurrentCache state = if state.currentCategory == 0 then state.mainGeometryCache else fromMaybe state.mainGeometryCache ((!!) state.geometryCaches (state.currentCategory - 1))
 
 focusInputById :: String -> Effect Unit
 focusInputById id = window >>= document >>= toDocument >>> toNonElementParentNode >>> getElementById id >>= case _ of
@@ -280,23 +307,24 @@ canvasComponent world st = do
   canvasRef <- liftEffect Ref.createNodeRef
   event <- D.div 
     [ P._id $ "canvasDiv" ]
-    [ D.canvas
-      [ P.width $ unsafePerformEffect $ (window >>= innerWidth) <#> (toNumber >>> toString)
-      , P.height $ unsafePerformEffect $ (window >>= innerHeight) <#> ((flip sub 6) >>> toNumber >>> toString)
-      , P._id $ "leCanvas"
-      , P.ref (Ref.fromRef canvasRef)
-      , (\event -> HandleEvent handleMouseDown event) <$> onMouseDown
-      , (\event -> HandleEvent handleMouseMove event) <$> onMouseMove
-      , (\event -> HandleEvent handleMouseUp event) <$> onMouseUp
-      ] []
-    , D.button [DecreaseCategory <$ P.onClick] [D.text "-"]
-    , D.button [AddCategoryPress <$ P.onClick] [D.text "Add category"]
-    , D.button [IncreaseCategory <$ P.onClick] [D.text "+"]
-    ]
+    $ [ D.button [AddCategoryPress <$ P.onClick, P.className "categoryButton"] [D.text "Add category"]
+      , D.div
+          [P._id "categoryButtons"]
+          (D.button [SwitchCategoryTo 0 <$ P.onClick, P.className "categoryButton"] [D.text "Functor category"] :
+          mapWithIndex (\idx _ -> D.button [SwitchCategoryTo (idx + 1) <$ P.onClick, P.className "categoryButton"] [D.text $ "Category " <> (show $ idx + 1)]) world.categories)
+      , D.canvas
+        [ P.width $ unsafePerformEffect $ (window >>= innerWidth) <#> (flip sub 100 >>> show)
+        , P.height $ unsafePerformEffect $ (window >>= innerHeight) <#> (flip sub 6 >>> show)
+        , P._id $ "leCanvas"
+        , P.ref (Ref.fromRef canvasRef)
+        , onMouseDown <#> \event -> HandleMouseEvent handleMouseDown event
+        , onMouseMove <#> \event -> HandleMouseEvent handleMouseMove event
+        , onMouseUp <#> \event -> HandleMouseEvent handleMouseUp event
+        , onWheel <#> \event -> HandleWheelEvent handleScroll event
+        ] []
+      ]
 
   newState <- liftEffect $ handleAction st event canvasRef
-
-  _ <- liftEffect $ logShow world
 
   fromMaybe (canvasComponent world st) $ (\passedState -> case passedState of
     (NewState state) -> canvasComponent (fromMaybe world $ fst <$> state) (fromMaybe st $ snd <$> state)
@@ -306,7 +334,7 @@ canvasComponent world st = do
 
   where
 
-  category = fromMaybe emptyCategory $ ((!!) world.categories =<< st.currentCategory)
+  category = getCurrentCategory world st
 
   handleQuery :: forall b. Query b -> Effect (Maybe HandleActionOutput)
   handleQuery query = case query of
@@ -320,22 +348,20 @@ canvasComponent world st = do
     Render -> do
       _ <- withContext ref \ctx -> renderCanvas ctx geometryCache
       pure $ Just $ NewState Nothing
-    HandleEvent handler event -> (\val -> handleForeignAction world state <$> val) <$> (withContext ref (\ctx -> handler ctx event geometryCache)) <* (handleQuery (Rerender ref))
+    HandleMouseEvent handler event ->
+      (\val -> handleForeignAction world state <$> val) <$> (withContext ref (\ctx -> handler ctx event geometryCache))
+      <* (handleQuery (Rerender ref))
+    HandleWheelEvent handler event ->
+      (\val -> handleForeignAction world state <$> val) <$> (withContext ref (\ctx -> handler ctx event geometryCache))
+      <* (handleQuery (Rerender ref))
     AddCategoryPress -> 
       (pure $ Just $ ReplaceCategory $ Tuple (world { categories = snoc world.categories emptyCategory }) newState)
       <* (handleAction newState Render ref)
       where
-        newState = st { geometryCaches = snoc st.geometryCaches $ unsafePerformEffect emptyGeometryCache, currentCategory = Just $ length world.categories }
-    IncreaseCategory -> 
-      (pure $ Just $ ReplaceCategory $ Tuple world newState)
-      <* (handleAction newState Render ref)
+        newState = st { geometryCaches = snoc st.geometryCaches $ unsafePerformEffect emptyGeometryCache, currentCategory = length world.categories }
+    SwitchCategoryTo newIdx -> (pure $ Just $ ReplaceCategory $ Tuple world $ getNewState newIdx) <* (handleAction (getNewState newIdx) Render ref)
       where
-        comparisonValue = ((==) <$> st.currentCategory) <*> (Just $ length world.categories - 1)
-        newState = st { currentCategory = if (fromMaybe false comparisonValue) then st.currentCategory else flip (+) 1 <$> st.currentCategory }
-    DecreaseCategory -> 
-      (pure $ Just $ ReplaceCategory $ Tuple world newState)
-      <* (handleAction newState Render ref)
-      where
-        newState = st { currentCategory = if st.currentCategory == Just 0 then st.currentCategory else flip (-) 1 <$> st.currentCategory }
+        getNewState :: Int -> GeometryState
+        getNewState newInt = (\x -> st { currentCategory = if x > length world.categories - 1 then st.currentCategory else if x < 0 then 0 else x + 1 }) (newInt - 1)
     where
-      geometryCache = fromMaybe (unsafePerformEffect emptyGeometryCache) $ ((!!) state.geometryCaches =<< state.currentCategory)
+      geometryCache = getCurrentCache state

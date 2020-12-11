@@ -5,7 +5,7 @@ import Data.Maybe
 import Prelude
 
 import Category.CategoryEquivalence (categoriesEquivalent)
-import Data.Array (snoc)
+import Data.Array (snoc, union)
 import Data.Foldable (foldl)
 import Data.Newtype (over, under, unwrap)
 import Data.Tuple (Tuple(..), snd)
@@ -50,6 +50,12 @@ createFunctorAutomatic c name contra world = world { categories = snoc world.cat
 
     convertObject :: Object -> Object
     convertObject = over Object (\x -> name <> "(" <> x <> ")")
+
+getIdentityFunctors :: World -> Array CFunctor
+getIdentityFunctors cat = (\x -> CFunctor { from: x, to: x, name: "id " <> x.name, contravariant: false }) <$> cat.categories
+
+getFunctorCategory :: World -> Category
+getFunctorCategory world = { objects: (\x -> Object $ x.name) <$> (unwrap <$> (union world.functors $ getIdentityFunctors world)), morphisms: [], name: "Functor Category" }
 
 isMorphismInCategory :: Category -> Maybe Object -> Maybe Object -> Boolean
 isMorphismInCategory _ Nothing Nothing = true

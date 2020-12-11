@@ -44,5 +44,10 @@ newtype CFunctor = CFunctor
   , contravariant :: Boolean
   }
 
+derive instance newtypeFunctor :: Newtype CFunctor _
+
+instance eqFunctor :: Eq CFunctor where
+  eq (CFunctor f) (CFunctor g) = f.from == g.from && f.to == g.to && f.contravariant == g.contravariant
+
 instance showFunctor :: Show CFunctor where
   show (CFunctor f) = f.name <> ": " <> f.from.name <> " -> " <> f.to.name

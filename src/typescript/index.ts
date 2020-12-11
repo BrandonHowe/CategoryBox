@@ -10,23 +10,24 @@ import {
     invert23,
     mulV23,
     transform23,
+    translation23,
     Mat23Like
 } from "@thi.ng/matrices";
 import { Vec } from "@thi.ng/vectors";
 import { objectWithinRadius } from './helpers/objectWithinRadius';
+import { isPressed, MouseButtons } from './mouse';
 import { getAllTargets, getMouseTarget, MouseTarget, MouseTargetKind } from "./target";
 import { ForeignAction, ForeignActionConfig } from "./types/ForeignAction";
 import { MorphismGeometry } from './types/Morphism';
 import { GeometryCache, ObjectGeometry } from "./types/Object";
 
-const W = window.innerWidth / 2 - 3;
+const W = window.innerWidth / 2 - 50;
 const H = window.innerHeight / 2 - 3;
 
 export const emptyGeometryCache = (): GeometryCache => ({
     objects: [],
     morphisms: [],
-    camera: transform23(null, [0, 0], 0, 1) as Mat23Like,
-    mouseDown: false
+    camera: transform23(null, [0, 0], 0, 1) as Mat23Like
 });
 
 const getMouseTransform = (
@@ -47,7 +48,26 @@ const getMouseTransform = (
     return transform;
 };
 
-const getEventData = (
+/**
+ * Returns a transform matrix moving the canvas by half it's size
+ *
+ * @param ctx The canvas rendering context to get the middle of.
+ * @param cache The cache to get the camera from.
+ */
+const getTransform = (ctx: CanvasRenderingContext2D, cache: GeometryCache) => {
+    const transform = transform23(
+        null,
+        [ctx.canvas.width / 2, ctx.canvas.height / 2],
+        0,
+        1
+    );
+  
+    concat(null, transform, cache.camera);
+  
+    return transform;
+};
+
+const getMouseEventData = (
     ctx: CanvasRenderingContext2D,
     event: MouseEvent,
     cache: GeometryCache,
@@ -57,11 +77,49 @@ const getEventData = (
     mouse: Vec
     target: MouseTarget
 } => {
-    const mouse = [event.pageX + W, event.pageY + H];
+    const mouse = [event.pageX, event.pageY];
     const transform = getMouseTransform(ctx, cache);
     const mousePosition = mulV23(null, transform, mouse);
     const target = getMouseTarget(mousePosition, cache);
     return { mousePosition, transform, mouse, target };
+};
+
+const getWheelEventData = (
+    ctx: CanvasRenderingContext2D,
+    event: WheelEvent,
+    cache: GeometryCache,
+): Pick<WheelEvent, "deltaMode" | "deltaX" | "deltaY" | "deltaZ"> => {
+    return { deltaMode: event.deltaMode, deltaX: event.deltaX, deltaY: event.deltaY, deltaZ: event.deltaZ };
+};
+
+/**
+ * Pan the camera by a certain amount.
+ *
+ * @param cache The cache to mutate.
+ * @param offset The amount to move the camera by.
+ */
+const pan = (cache: GeometryCache, offset: Vec) => {
+    offset[0] /= cache.camera[0];
+    offset[1] /= cache.camera[3];
+    concat(null, cache.camera, translation23([], offset));
+};
+
+
+/**
+ * Zoom the camera by a certain amount.
+ *
+ * @param cache The cache to mutate.
+ * @param offset The amount to zoom the camera by.
+ */
+const zoom = (ctx: CanvasRenderingContext2D, cache: GeometryCache, offset: number) => {
+    const transform = transform23(
+        null,
+        [ctx.canvas.width / 2, ctx.canvas.height / 2],
+        0,
+        1
+    );
+    cache.camera[0] += offset;
+    cache.camera[3] += offset;
 };
 
 /**
@@ -77,9 +135,11 @@ export const onMouseMove = (
     event: MouseEvent,
     cache: GeometryCache
 ): () => ForeignAction => {
-    const mouse = [event.pageX + W, event.pageY + H];
+    const mouse = [event.pageX, event.pageY];
     const transform = getMouseTransform(ctx, cache);
     const mousePosition = mulV23(null, transform, mouse);
+
+    const pressed = isPressed(event.buttons)
   
     const target = getMouseTarget(mousePosition, cache);
 
@@ -103,8 +163,11 @@ export const onMouseMove = (
         target.target.arrowhead2.attribs!.weight = 3;
     }
 
-    if (cache.mouseDown && !cache.dragging && target.type === MouseTargetKind.Object) {
+    if (pressed(MouseButtons.LeftButton) && !cache.dragging && target.type === MouseTargetKind.Object) {
         return () => config.startDragging(cache.objects.indexOf(target.target));
+    } else if (pressed(MouseButtons.RightButton)) {
+        const mouseScreenOffset = [event.movementX, event.movementY]
+        pan(cache, mouseScreenOffset);
     }
 
     if (cache.dragging) {
@@ -217,7 +280,6 @@ export const startComposition = (cache: GeometryCache, idx: number): GeometryCac
 };
 
 export const stopDragging = (cache: GeometryCache): GeometryCache => {
-    cache.mouseDown = false;
     delete cache.dragging;
     return cache;
 };
@@ -235,22 +297,27 @@ export const onMouseDown = (
     event: MouseEvent,
     cache: GeometryCache,
 ): () => ForeignAction => {
-    const { mousePosition, target } = getEventData(ctx, event, cache);
-    if (target?.type === MouseTargetKind.Nothing && !objectWithinRadius(mousePosition, 20, cache)) {
-        render(ctx)(cache);
-        return () => config.getObjectName(mousePosition[0], mousePosition[1]);
-    } else if (target?.type === MouseTargetKind.Object) {
-        if (cache.morphismStart) {
+    const { mousePosition, target } = getMouseEventData(ctx, event, cache);
+
+    event.preventDefault();
+
+    const pressed = isPressed(event.buttons);
+
+    if (pressed(MouseButtons.LeftButton)) {
+        if (target?.type === MouseTargetKind.Nothing && !objectWithinRadius(mousePosition, 20, cache)) {
             render(ctx)(cache);
-            return () => config.getMorphismName(cache.objects.indexOf(cache.morphismStart!), cache.objects.indexOf(target.target));
-        } else {
-            cache.mouseDown = true;
-        }
-    } else if (target?.type === MouseTargetKind.Morphism) {
-        if (cache.composing) {
-            return () => config.getCompositionName(cache.morphisms.indexOf(cache.composing!), cache.morphisms.indexOf(target.target));
-        } else {
-            cache.composing = target.target;
+            return () => config.getObjectName(mousePosition[0], mousePosition[1]);
+        } else if (target?.type === MouseTargetKind.Object) {
+            if (cache.morphismStart) {
+                render(ctx)(cache);
+                return () => config.getMorphismName(cache.objects.indexOf(cache.morphismStart!), cache.objects.indexOf(target.target));
+            }
+        } else if (target?.type === MouseTargetKind.Morphism) {
+            if (cache.composing) {
+                return () => config.getCompositionName(cache.morphisms.indexOf(cache.composing!), cache.morphisms.indexOf(target.target));
+            } else {
+                cache.composing = target.target;
+            }
         }
     }
     render(ctx)(cache);
@@ -270,45 +337,66 @@ export const onMouseUp = (
     event: MouseEvent,
     cache: GeometryCache,
 ): () => ForeignAction => {
-    const { target } = getEventData(ctx, event, cache);
-    if (cache.mouseDown && target.type === MouseTargetKind.Object && !cache.dragging) {
+    const pressed = isPressed(event.buttons);
+
+    const { target } = getMouseEventData(ctx, event, cache);
+
+    if (pressed(MouseButtons.LeftButton) && target.type === MouseTargetKind.Object && !cache.dragging) {
         target.target!.shape.attribs!.fill = "#f00";
-        cache.mouseDown = false;
         return () => config.startMorphism(cache.objects.indexOf(target.target!));
     }
     if (cache.dragging) {
         return () => config.stopDragging;
     }
-    cache.mouseDown = false;
     render(ctx)(cache);
+    return () => config.nothing;
+};
+
+/**
+ * Handle a onScroll event
+ *
+ * @param ctx The context to re-render to.
+ * @param event The event to handle.
+ * @param cache The cache to mutate.
+ */
+export const onScroll = (
+    config: ForeignActionConfig,
+    ctx: CanvasRenderingContext2D,
+    event: WheelEvent,
+    cache: GeometryCache,
+): () => ForeignAction => {
+
     return () => config.nothing;
 };
 
 export const render = (ctx: CanvasRenderingContext2D) => (cache: GeometryCache) => {
     ctx.resetTransform();
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    cache.objects.map(l => {
-        draw(ctx, l.shape);
+
+    const matrix = getTransform(ctx, cache);
+
+    const objectsShapes = cache.objects.map(l => {
         const modifiedPos = [l.position[0], l.position[1] + 20];
-        draw(ctx, text(modifiedPos, l.name, { fill: "#000", align: "center" }));
-    });
-    cache.morphisms.map(l => {
+        return [l.shape, text(modifiedPos, l.name, { fill: "#000", align: "center" })];
+    }).flat();
+    const morphismShapes = cache.morphisms.map(l => {
         if (l.from !== l.to) {
             const angle = (Math.atan2(l.to.pos[1] - l.from.pos[1], l.to.pos[0] - l.from.pos[0]) * (180 / Math.PI) + 360) % 360;
             const midpoint = [(l.from.pos[0] + l.to.pos[0]) / 2, (l.from.pos[1] + l.to.pos[1]) / 2];
             const modifiedAngle = (angle + 270) % 360;
             const textPos = [midpoint[0] + (20 * Math.cos(modifiedAngle * Math.PI / 360)), midpoint[1] + (20 * Math.sin(modifiedAngle * Math.PI / 360))];
-            draw(ctx, l.arrowhead1);
-            draw(ctx, l.arrowhead2);
-            draw(ctx, l.shape);
-            draw(ctx, text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" }));
+            return [l.arrowhead1, l.arrowhead2, l.shape, text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" })];
         } else {
             const textPos = [l.from.pos[0], l.from.pos[1] - 30];
-            draw(ctx, l.arrowhead1);
-            draw(ctx, l.arrowhead2);
-            draw(ctx, l.shape);
-            draw(ctx, text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" }));
+            return [l.arrowhead1, l.arrowhead2, l.shape, text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" })]
         }
+    }).flat();
+    const shapes = ["g", { transform: matrix }, ...objectsShapes, ...morphismShapes];
+
+    draw(ctx, [shapes], {
+        attribs: {},
+        edits: []
     });
+
     return () => {};
 };

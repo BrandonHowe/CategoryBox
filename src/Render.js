@@ -1,6 +1,7 @@
 const render = require("../../src/typescript/index.ts");
 
 exports.renderCanvas = render.render;
+exports.handleScrollImpl = render.onScroll;
 exports.handleMouseUpImpl = render.onMouseUp;
 exports.handleMouseDownImpl = render.onMouseDown;
 exports.handleMouseMoveImpl = render.onMouseMove;
