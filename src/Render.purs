@@ -1,92 +1,63 @@
-module Render where
+module CategoryBox.Render where
 
 import Prelude
 
-import Category.Main (composeMorphisms, createMorphism, emptyCategory, getFunctorCategory)
-import Category.Types (Category, Morphism(..), Object(..), World)
+import CategoryBox.Data.Main (composeMorphisms, createMorphism, emptyCategory, getFunctorCategory)
+import CategoryBox.Data.Types (Category, Morphism(..), Object(..), World)
+import CategoryBox.Foreign.ForeignAction (ForeignAction(..))
+import CategoryBox.Foreign.Render (Context2d, GeomMouseEventHandler, GeomWheelEventHandler, GeometryCache, createForeignMorphism, createForeignObject, emptyGeometryCache, getContext, handleMouseDown, handleMouseMove, handleMouseUp, handleScroll, renderCanvas, startDragging, startMorphism, stopDragging)
 import Concur.Core (Widget)
 import Concur.Core.Props (filterProp)
 import Concur.React (HTML)
-import Concur.React.DOM (El)
 import Concur.React.DOM as D
-import Concur.React.Props (ReactProps, onContextMenu, onMouseDown, onMouseMove, onMouseUp, onWheel, unsafeTargetValue)
+import Concur.React.Props (ReactProps, onMouseDown, onMouseMove, onMouseUp, onWheel)
 import Concur.React.Props as P
 import Concur.React.Run (runWidgetInDom)
 import Control.Alt ((<|>))
 import Data.Array (elemIndex, length, mapWithIndex, singleton, snoc, updateAt, (!!), (:))
-import Data.Default (class Default, def)
-import Data.Function.Uncurried (Fn1, Fn2, Fn3, Fn4, runFn4, runFn2, runFn1, mkFn3, mkFn2, mkFn1)
-import Data.Int (toNumber)
-import Data.Maybe (Maybe(..), fromMaybe, isJust)
-import Data.Number.Format (toString)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst, snd)
 import Effect (Effect)
 import Effect.Class (liftEffect)
-import Effect.Class.Console (log, logShow)
 import Effect.Unsafe (unsafePerformEffect)
-import Prim.Boolean (False)
-import Prim.Boolean (False)
 import React.Ref (NativeNode, Ref)
 import React.Ref as Ref
-import React.SyntheticEvent (SyntheticEvent, SyntheticEvent_, SyntheticKeyboardEvent, SyntheticMouseEvent, SyntheticWheelEvent)
+import React.SyntheticEvent (SyntheticKeyboardEvent, SyntheticMouseEvent, SyntheticWheelEvent)
 import Unsafe.Coerce (unsafeCoerce)
-import Web.DOM.Document (toNonElementParentNode)
-import Web.DOM.NonElementParentNode (getElementById)
 import Web.HTML (window)
-import Web.HTML.HTMLDocument (toDocument)
-import Web.HTML.HTMLElement (focus, fromElement)
-import Web.HTML.Window (document, innerHeight, innerWidth)
+import Web.HTML.Window (innerHeight, innerWidth)
 
--- | Stuff the ts side of things can tell us to do
-data ForeignAction
-  = CreateObject Int Int String
-  | GetObjectName Int Int
-  | CreateMorphism Int Int String
-  | GetMorphismName Int Int
-  | ComposeMorphisms Int Int String
-  | GetCompositionName Int Int
-  | StartMorphism Int
-  | StartDragging Int
-  | StopDragging
-  | NoAction
-
-newtype ForeignActionConfig
-  = ForeignActionConfig
-  { createObject :: Fn3 Int Int String ForeignAction
-  , getObjectName :: Fn2 Int Int ForeignAction
-  , createMorphism :: Fn3 Int Int String ForeignAction
-  , getMorphismName :: Fn2 Int Int ForeignAction
-  , composeMorphisms :: Fn3 Int Int String ForeignAction
-  , getCompositionName :: Fn2 Int Int ForeignAction
-  , startMorphism :: Fn1 Int ForeignAction
-  , startDragging :: Fn1 Int ForeignAction
-  , stopDragging :: ForeignAction
-  , nothing :: ForeignAction
-  }
-
-
-instance defaultForeignActionConfig :: Default ForeignActionConfig where
-  def =
-    ForeignActionConfig
-      { createObject: mkFn3 CreateObject
-      , getObjectName: mkFn2 GetObjectName
-      , createMorphism: mkFn3 CreateMorphism
-      , getMorphismName: mkFn2 GetMorphismName
-      , composeMorphisms: mkFn3 ComposeMorphisms
-      , getCompositionName: mkFn2 GetCompositionName
-      , startMorphism: mkFn1 StartMorphism
-      , startDragging: mkFn1 StartDragging
-      , stopDragging: StopDragging
-      , nothing: NoAction
-      }
-
+-- | Ways we can update the GeometryState.
 data UpdateAction
   = UpdateCreateObject Int Int String
   | UpdateCreateMorphism Int Int String
   | UpdateComposeMorphisms Int Int String
   | NoUpdate
 
+-- | State that contains all the geometry caches.
+type GeometryState =
+  { context :: Maybe Context2d
+  , geometryCaches :: Array GeometryCache
+  , mainGeometryCache :: GeometryCache
+  , currentCategory :: Int
+  }
+
+-- | Actions that the user can execute via the DOM.
+data Action = 
+  Render
+  | HandleMouseEvent GeomMouseEventHandler SyntheticMouseEvent
+  | HandleWheelEvent GeomWheelEventHandler SyntheticWheelEvent
+  | AddCategoryPress
+  | SwitchCategoryTo Int
+
+-- | Tuple of World and GeometryState, wrapped in something and used after handling a typescript event.
+data HandleActionOutput
+  = NewState (Maybe (Tuple World GeometryState))
+  | RaiseComponent (Widget HTML (Maybe (Tuple World GeometryState)))
+  | ReplaceCategory (Tuple World GeometryState)
+
+-- | Update the World and the GeometryState.
 updateStateCache :: World -> GeometryState -> UpdateAction -> Maybe (Tuple World GeometryState)
 updateStateCache world geom action = case action of
   UpdateCreateObject posX posY name -> Just
@@ -110,8 +81,10 @@ updateStateCache world geom action = case action of
       composedIdx2 = join $ (\(Morphism f) -> elemIndex f.to category.objects) <$> composedMorphism
   NoUpdate -> Just $ Tuple world geom
   where
+    category :: Category
     category = getCurrentCategory world geom
 
+    geometryCache :: GeometryCache
     geometryCache = getCurrentCache geom
 
     updateGeometryState :: GeometryCache -> GeometryState -> GeometryState
@@ -120,14 +93,18 @@ updateStateCache world geom action = case action of
     updateWorldCategory :: Category -> World -> World
     updateWorldCategory cat w = world { categories = fromMaybe world.categories $ updateAt geom.currentCategory cat w.categories }
 
+-- | Handles events passed to us from the typescript side.
 handleForeignAction :: World -> GeometryState -> ForeignAction -> HandleActionOutput
 handleForeignAction world geom action = case action of
+  -- | Use updateStateCache to update the state.
   CreateObject posX posY name -> NewState $ updateStateCache world geom (UpdateCreateObject posX posY name)
   CreateMorphism idx1 idx2 name -> NewState $ updateStateCache world geom (UpdateCreateMorphism idx1 idx2 name)
   ComposeMorphisms idx1 idx2 name -> NewState $ updateStateCache world geom (UpdateCreateMorphism idx1 idx2 name)
+  -- | Start morphsims or dragging
   StartMorphism idx -> NewState $ Just $ Tuple world $ updateGeometryState (startMorphism geometryCache idx) geom
   StartDragging idx -> NewState $ Just $ Tuple world $ updateGeometryState (startDragging geometryCache idx) geom
   StopDragging -> NewState $ Just $ Tuple world $ updateGeometryState (stopDragging geometryCache) geom
+  -- | Pass a component back to the user for further input.
   GetObjectName posX posY -> RaiseComponent $ modalInputComponent "What is the name of this object?" "Object name" <#> handleReceivedName world geom
     where
       handleReceivedName :: World -> GeometryState -> Maybe String -> Maybe (Tuple World GeometryState)
@@ -154,68 +131,6 @@ handleForeignAction world geom action = case action of
     updateGeometryState :: GeometryCache -> GeometryState -> GeometryState
     updateGeometryState cache state = state { geometryCaches = fromMaybe state.geometryCaches (updateAt state.currentCategory cache state.geometryCaches) }
 
-foreign import data Context2d :: Type
-
-foreign import data GeometryCache :: Type
-
-foreign import emptyGeometryCache :: Effect GeometryCache
-
-foreign import renderCanvas :: Context2d -> GeometryCache -> Effect Unit
-
--- | Type of event handlers for the Scene component.
-type NativeGeomMouseEventHandler
-  = Fn4 ForeignActionConfig Context2d SyntheticMouseEvent GeometryCache (Effect ForeignAction)
-
-type NativeGeomWheelEventHandler
-  = Fn4 ForeignActionConfig Context2d SyntheticWheelEvent GeometryCache (Effect ForeignAction)
-
-type GeomMouseEventHandler
-  = Context2d -> SyntheticMouseEvent -> GeometryCache -> Effect ForeignAction
-
-type GeomWheelEventHandler
-  = Context2d -> SyntheticWheelEvent -> GeometryCache -> Effect ForeignAction
-
-foreign import handleScrollImpl :: NativeGeomWheelEventHandler
-foreign import handleMouseUpImpl :: NativeGeomMouseEventHandler
-foreign import handleMouseDownImpl :: NativeGeomMouseEventHandler
-foreign import handleMouseMoveImpl :: NativeGeomMouseEventHandler
-foreign import createObjectImpl :: Fn4 GeometryCache Int Int String GeometryCache
-foreign import createMorphismImpl :: Fn4 GeometryCache Int Int String GeometryCache
-foreign import startMorphismImpl :: Fn2 GeometryCache Int GeometryCache
-foreign import startDraggingImpl :: Fn2 GeometryCache Int GeometryCache
-foreign import startComposingImpl :: Fn2 GeometryCache Int GeometryCache
-foreign import stopDraggingImpl :: Fn1 GeometryCache GeometryCache
-
-createForeignObject :: GeometryCache -> Int -> Int -> String -> GeometryCache
-createForeignObject = runFn4 createObjectImpl
-
-createForeignMorphism :: GeometryCache -> Int -> Int -> String -> GeometryCache
-createForeignMorphism = runFn4 createMorphismImpl
-
-startMorphism :: GeometryCache -> Int -> GeometryCache
-startMorphism = runFn2 startMorphismImpl
-
-startDragging :: GeometryCache -> Int -> GeometryCache
-startDragging = runFn2 startDraggingImpl
-
-startComposing :: GeometryCache -> Int -> GeometryCache
-startComposing = runFn2 startComposingImpl
-
-stopDragging :: GeometryCache -> GeometryCache
-stopDragging = runFn1 stopDraggingImpl
-
-handleMouseDown :: GeomMouseEventHandler
-handleMouseDown = runFn4 handleMouseDownImpl def
-
-handleMouseMove :: GeomMouseEventHandler
-handleMouseMove = runFn4 handleMouseMoveImpl def
-
-handleMouseUp :: GeomMouseEventHandler
-handleMouseUp = runFn4 handleMouseUpImpl def
-
-handleScroll :: GeomWheelEventHandler
-handleScroll = runFn4 handleScrollImpl def
-
 render :: Effect Unit
 render = runWidgetInDom "app" $ canvasComponent defaultWorld defaultState
   where
@@ -226,11 +141,7 @@ render = runWidgetInDom "app" $ canvasComponent defaultWorld defaultState
     defaultState :: GeometryState
     defaultState = { context: Nothing, geometryCaches: [unsafePerformEffect emptyGeometryCache], mainGeometryCache: functorCategory, currentCategory: 0 }
 
-foreign import resizeCanvas :: El -> Effect Unit
-
-foreign import getContext :: forall a. Widget HTML a -> Effect Context2d
-
--- | Run a computation (inside a halogen component) which requires access to a canvas rendering context.
+-- | Run a computation which requires access to a canvas rendering context.
 withContext :: forall a. Ref NativeNode -> (Context2d -> Effect a) -> Effect (Maybe a)
 withContext ref comp = do
   matchingRef <- liftEffect $ Ref.getCurrentRef ref
@@ -240,47 +151,18 @@ withContext ref comp = do
       context <- getContext (unsafeCoerce element)
       sequence $ Just $ comp context
 
-type GeometryState =
-  { context :: Maybe Context2d
-  , geometryCaches :: Array GeometryCache
-  , mainGeometryCache :: GeometryCache
-  , currentCategory :: Int
-  }
-
-data Query a
-  = LoadScene GeometryState (Ref NativeNode) a
-  | Rerender (Ref NativeNode)
-
-data Action = 
-  Render
-  | HandleMouseEvent GeomMouseEventHandler SyntheticMouseEvent
-  | HandleWheelEvent GeomWheelEventHandler SyntheticWheelEvent
-  | AddCategoryPress
-  | SwitchCategoryTo Int
-
-type Input = Unit
-
-type Output = Unit
-
-data HandleActionOutput
-  = NewState (Maybe (Tuple World GeometryState))
-  | RaiseComponent (Widget HTML (Maybe (Tuple World GeometryState)))
-  | ReplaceCategory (Tuple World GeometryState)
-
+-- | Get current category based off the world and current state.
 getCurrentCategory :: World -> GeometryState -> Category
 getCurrentCategory world st = if st.currentCategory == 0 then functorCategory else fromMaybe functorCategory ((!!) world.categories (st.currentCategory - 1))
   where
     functorCategory :: Category
     functorCategory = getFunctorCategory world
 
+-- | Get current geometry cache based off the current state.
 getCurrentCache :: GeometryState -> GeometryCache
 getCurrentCache state = if state.currentCategory == 0 then state.mainGeometryCache else fromMaybe state.mainGeometryCache ((!!) state.geometryCaches (state.currentCategory - 1))
 
-focusInputById :: String -> Effect Unit
-focusInputById id = window >>= document >>= toDocument >>> toNonElementParentNode >>> getElementById id >>= case _ of
-  Nothing -> pure unit
-  Just elem -> pure unit <* log "blah" <* (sequence $ focus <$> fromElement elem)
-
+-- | Component that gathers an input from a modal.
 modalInputComponent :: String -> String -> Widget HTML (Maybe String)
 modalInputComponent question placeholder = do 
   e <- D.div [ P.className "modalInputComponentBackground", Nothing <$ onKeyEscape ]
@@ -292,7 +174,6 @@ modalInputComponent question placeholder = do
     ]
   new <- pure $ P.unsafeTargetValue <$> e
   _ <- liftEffect $ sequence $ P.resetTargetValue "" <$> e
-  liftEffect $ focusInputById "modalInputComponentInput"
   pure new
     where
       onKeyEscape :: ReactProps SyntheticKeyboardEvent
@@ -305,6 +186,8 @@ modalInputComponent question placeholder = do
 canvasComponent :: forall a. World -> GeometryState -> Widget HTML a
 canvasComponent world st = do
   canvasRef <- liftEffect Ref.createNodeRef
+
+  -- | Create HTML of the component, as well as gather any events.
   event <- D.div 
     [ P._id $ "canvasDiv" ]
     $ [ D.button [AddCategoryPress <$ P.onClick, P.className "categoryButton"] [D.text "Add category"]
@@ -324,25 +207,21 @@ canvasComponent world st = do
         ] []
       ]
 
+  -- | Get the new state after handling any DOM actions.
   newState <- liftEffect $ handleAction st event canvasRef
 
-  fromMaybe (canvasComponent world st) $ (\passedState -> case passedState of
+  -- | Render the next version of the component.
+  fromMaybe (canvasComponent world st) $ newState <#> \passedState -> case passedState of
     (NewState state) -> canvasComponent (fromMaybe world $ fst <$> state) (fromMaybe st $ snd <$> state)
     (RaiseComponent component) -> canvasComponent world st <|> component >>= \state -> canvasComponent (fromMaybe world $ fst <$> state) (fromMaybe st $ snd <$> state)
     (ReplaceCategory new) -> canvasComponent (fst new) (snd new)
-  ) <$> newState
 
   where
 
+  category :: Category
   category = getCurrentCategory world st
 
-  handleQuery :: forall b. Query b -> Effect (Maybe HandleActionOutput)
-  handleQuery query = case query of
-    LoadScene newState ref a -> handleAction updatedState Render ref
-      where
-        updatedState = st { context = newState.context, geometryCaches = newState.geometryCaches }
-    Rerender ref -> handleAction st Render ref
-
+  -- | Handle action passed to us via the DOM.
   handleAction :: GeometryState -> Action -> Ref NativeNode -> Effect (Maybe HandleActionOutput)
   handleAction state action ref = case action of
     Render -> do
@@ -350,10 +229,10 @@ canvasComponent world st = do
       pure $ Just $ NewState Nothing
     HandleMouseEvent handler event ->
       (\val -> handleForeignAction world state <$> val) <$> (withContext ref (\ctx -> handler ctx event geometryCache))
-      <* (handleQuery (Rerender ref))
+      <* (handleAction state Render ref)
     HandleWheelEvent handler event ->
       (\val -> handleForeignAction world state <$> val) <$> (withContext ref (\ctx -> handler ctx event geometryCache))
-      <* (handleQuery (Rerender ref))
+      <* (handleAction state Render ref)
     AddCategoryPress -> 
       (pure $ Just $ ReplaceCategory $ Tuple (world { categories = snoc world.categories emptyCategory }) newState)
       <* (handleAction newState Render ref)

@@ -1,13 +1,13 @@
 module Main where
 
-import Category.Main
-import Category.Types
+import CategoryBox.Data.Main
+import CategoryBox.Data.Types
 import Data.Exists
 import Data.Maybe
 import Data.Tuple
 import Prelude
 
-import Category.CategoryEquivalence (categoriesEquivalent)
+import CategoryBox.Data.CategoryEquivalence (categoriesEquivalent)
 import Data.Foldable (foldl)
 import Effect (Effect)
 import Effect.Console (logShow)

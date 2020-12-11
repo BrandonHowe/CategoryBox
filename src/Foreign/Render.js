@@ -1,4 +1,4 @@
-const render = require("../../src/typescript/index.ts");
+const render = require("../../../src/typescript/index.ts");
 
 exports.renderCanvas = render.render;
 exports.handleScrollImpl = render.onScroll;

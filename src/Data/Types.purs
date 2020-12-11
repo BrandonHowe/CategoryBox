@@ -1,4 +1,4 @@
-module Category.Types where
+module CategoryBox.Data.Types where
 
 import Prelude
 

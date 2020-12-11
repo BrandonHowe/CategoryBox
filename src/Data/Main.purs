@@ -1,10 +1,10 @@
-module Category.Main where
+module CategoryBox.Data.Main where
 
-import Category.Types
+import CategoryBox.Data.Types
 import Data.Maybe
 import Prelude
 
-import Category.CategoryEquivalence (categoriesEquivalent)
+import CategoryBox.Data.CategoryEquivalence (categoriesEquivalent)
 import Data.Array (snoc, union)
 import Data.Foldable (foldl)
 import Data.Newtype (over, under, unwrap)

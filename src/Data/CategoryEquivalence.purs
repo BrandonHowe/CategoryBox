@@ -1,8 +1,8 @@
-module Category.CategoryEquivalence where
+module CategoryBox.Data.CategoryEquivalence where
 
 import Prelude
 
-import Category.Types (Category, Morphism(..), Object(..))
+import CategoryBox.Data.Types (Category, Morphism(..), Object(..))
 import Data.Array (delete, (:), snoc, zip)
 import Data.Foldable (find, foldl)
 import Data.Maybe (Maybe, fromMaybe)
