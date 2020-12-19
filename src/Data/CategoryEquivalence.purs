@@ -12,6 +12,8 @@ import Data.Tuple (Tuple, fst, snd)
 -- | Tuple of (old name, new name)
 type ObjectReplacements = Array (Tuple String String)
 
+-- | Helper function for `categoriesEquivalent`.
+-- | *Note:* do not use this function.
 replaceCategoryObjects :: Category -> ObjectReplacements -> Category
 replaceCategoryObjects category replacements = category
     { objects = updatedObjects category replacements
@@ -30,6 +32,7 @@ replaceCategoryObjects category replacements = category
       , to = fromMaybe x.to (findMatchingReplacement repl $ unwrap x.to) 
       } ) <$> cat.morphisms
 
+-- | Given two categories, decide if they are equivalent.
 categoriesEquivalent :: Category -> Category -> Boolean
 categoriesEquivalent c d = foldl (\acc cur -> acc || categoriesEqual cur d) false (allObjectOrderings =<< (replaceCategoryObjects c <$> allObjectReplacements c d))
   where

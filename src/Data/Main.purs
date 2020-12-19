@@ -11,12 +11,18 @@ import Data.Newtype (over, under, unwrap)
 import Data.Tuple (Tuple(..), snd)
 import Partial.Unsafe (unsafePartial)
 
+-- | Given two objects and a name, create a morphism
 createMorphism :: Object -> Object -> String -> Morphism
 createMorphism a b name = Morphism ({ from: a, to: b, name: name })
 
+-- | Compose two morphisms with <<<
+-- | ```purescript
+-- | composeMorphisms (Morphism ({ from: b, to: c })) (Morphism ({ from: a, to: b })) == Morphism ({ from: a, to: c })
+-- | ````
 composeMorphisms :: Morphism -> Morphism -> Maybe Morphism
 composeMorphisms (Morphism f) (Morphism g) = if f.to == g.from then Just (Morphism { from: f.from, to: g.to, name: f.name <> " o " <> g.name }) else Nothing
 
+-- | Empty category with a blank name
 emptyCategory :: Category
 emptyCategory =
   { objects: []
@@ -24,6 +30,7 @@ emptyCategory =
   , name: ""
   }
 
+-- | Given two categories, a name, and a contravariance, create a functor if the two categories are compatible, otherwise return `Nothing`
 createFunctor :: Category -> Category -> String -> Boolean -> Maybe CFunctor
 createFunctor c d name contra = if categoriesEquivalent c d then Just $ CFunctor { from: c, to: d, name: name, contravariant: contra } else Nothing
 
@@ -51,21 +58,29 @@ createFunctorAutomatic c name contra world = world { categories = snoc world.cat
     convertObject :: Object -> Object
     convertObject = over Object (\x -> name <> "(" <> x <> ")")
 
+-- | Get all identity functors from a `World`.
 getIdentityFunctors :: World -> Array CFunctor
 getIdentityFunctors cat = (\x -> CFunctor { from: x, to: x, name: "id " <> x.name, contravariant: false }) <$> cat.categories
 
+-- | Get the functor category from a `World`, the category with all functors as objects and all natural transformations as morphisms
 getFunctorCategory :: World -> Category
-getFunctorCategory world = { objects: (\x -> Object $ x.name) <$> (unwrap <$> (union world.functors $ getIdentityFunctors world)), morphisms: [], name: "Functor Category" }
+getFunctorCategory world = { 
+  objects: (unwrap <$> (union world.functors $ getIdentityFunctors world)) <#> \x -> Object $ x.name
+  , morphisms: [], name: "Functor Category"
+  }
 
+-- | Given a category and two objects, decide if the morphism between the two objects is in the category.
 isMorphismInCategory :: Category -> Maybe Object -> Maybe Object -> Boolean
 isMorphismInCategory _ Nothing Nothing = true
 isMorphismInCategory category (Just f) Nothing = foldl (\m (Morphism n) -> m || n.from == f) false category.morphisms
 isMorphismInCategory category Nothing (Just g) = foldl (\m (Morphism n) -> m || n.to == g) false category.morphisms
 isMorphismInCategory category (Just f) (Just g) = foldl (\m (Morphism n) -> m || n.from == f && n.to == g) false category.morphisms
 
+-- | See if a morphism is an endomorphism.
 isEndomorphism :: Morphism -> Boolean
 isEndomorphism (Morphism m) = m.from == m.to
 
+-- | See if morphism is identity morphism.
 isIdentity :: Morphism -> Boolean
 isIdentity = isEndomorphism
 
