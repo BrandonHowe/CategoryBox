@@ -197,7 +197,6 @@ export const onMouseMove = (
 }
 
 export const createObject = (cache: GeometryCache, posX: number, posY: number, name: string): GeometryCache => {
-    console.log("Creating object");
     cache.objects.push({
         id: cache.objects.length + 1,
         position: [posX, posY],

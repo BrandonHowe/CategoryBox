@@ -2,16 +2,15 @@ module Main where
 
 import CategoryBox.Data.Main
 import CategoryBox.Data.Types
-import Data.Exists
 import Data.Maybe
-import Data.Tuple
 import Prelude
 
 import CategoryBox.Data.CategoryEquivalence (categoriesEquivalent)
-import Data.Foldable (foldl)
+import CategoryBox.Helpers.CantorPairing (invertCantorPairing)
+import CategoryBox.Render (render)
+import Data.Bifunctor (bimap)
 import Effect (Effect)
 import Effect.Console (logShow)
-import Render (render)
 
 main :: Effect Unit
 main = do
@@ -24,6 +23,7 @@ main = do
   logShow $ createFunctor cat1 cat3 "F" false
   logShow $ createFunctor cat1 cat2 "G" false
   logShow $ createFunctorAutomatic cat1 "F" false myWorld
+  logShow $ bimap (mul 100) (mul 100) $ invertCantorPairing 4
   render
   where
     myObject1 = Object "Blah"
