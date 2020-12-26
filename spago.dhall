@@ -13,6 +13,7 @@ You can edit this file as you like.
   , "nested-functor"
   , "numbers"
   , "psci-support"
+  , "quickcheck"
   , "tuples"
   ]
 , packages = ./packages.dhall
