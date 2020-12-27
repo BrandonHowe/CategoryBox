@@ -24,3 +24,10 @@ exports.resizeCanvas = canvas => () => {
 
 // To be able to get contexts from purescript
 exports.getContext = canvas => () => canvas.getContext("2d");
+
+// Show function for geometry caches
+exports.showGeometryCache = JSON.stringify;
+exports.showContext2d = JSON.stringify;
+
+// Decode JSON into geometry cache
+exports.decodeJsonGeometryCache = JSON.parse;

@@ -3,7 +3,7 @@ module CategoryBox.Render where
 import Prelude
 
 import CategoryBox.Data.Main (composeMorphisms, createMorphism, createFunctor, emptyCategory, getFunctorCategory)
-import CategoryBox.Data.Types (Category, Morphism(..), Object(..), World)
+import CategoryBox.Data.Types (Category, Morphism, Object(..), World)
 import CategoryBox.Foreign.ForeignAction (ForeignAction(..))
 import CategoryBox.Foreign.Render (Context2d, GeomMouseEventHandler, GeomWheelEventHandler, GeometryCache, createForeignMorphism, createForeignObject, emptyGeometryCache, getContext, handleMouseDown, handleMouseMove, handleMouseUp, handleScroll, renderCanvas, startDragging, startMorphism, stopDragging)
 import CategoryBox.Helpers.CantorPairing (invertCantorPairing)
@@ -23,6 +23,7 @@ import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst, snd, uncurry)
 import Effect (Effect)
 import Effect.Class (liftEffect)
+import Effect.Class.Console (logShow)
 import Effect.Unsafe (unsafePerformEffect)
 import React.Ref (NativeNode, Ref)
 import React.Ref as Ref
@@ -97,8 +98,8 @@ updateStateCache world geom action = case action of
       mor1 = category.morphisms !! idx1
       mor2 = category.morphisms !! idx2
       composedMorphism = join $ composeMorphisms <$> mor1 <*> mor2
-      composedIdx1 = join $ composedMorphism <#> \(Morphism f) -> elemIndex f.from category.objects
-      composedIdx2 = join $ composedMorphism <#> \(Morphism f) -> elemIndex f.to category.objects
+      composedIdx1 = join $ composedMorphism <#> \f -> elemIndex f.from category.objects
+      composedIdx2 = join $ composedMorphism <#> \f -> elemIndex f.to category.objects
   NoUpdate -> Tuple world geom
   where
     category :: Category
@@ -158,7 +159,8 @@ render = runWidgetInDom "app" $ canvasComponent defaultWorld defaultState
     functorCategory = createForeignObject (unsafePerformEffect emptyGeometryCache) 0 0 "id Category 1"
     defaultWorld :: World
     defaultWorld = { categories: [emptyCategory]
-                   , functors: [] 
+                   , functors: []
+                   , name: "My world" 
                    }
     defaultState :: GeometryState
     defaultState = { context: Nothing
@@ -237,6 +239,8 @@ canvasComponent world st = do
 
   -- | Get the new state after handling any DOM actions.
   newState <- liftEffect $ handleAction st event canvasRef
+
+  _ <- liftEffect $ logShow { world, st }
 
   -- | Render the next version of the component.
   fromMaybe (canvasComponent world st) $ newState <#> \passedState -> case passedState of

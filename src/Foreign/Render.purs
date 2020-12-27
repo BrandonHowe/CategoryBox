@@ -6,14 +6,26 @@ import CategoryBox.Foreign.ForeignAction (ForeignAction, ForeignActionConfig)
 import Concur.Core (Widget)
 import Concur.React (HTML)
 import Concur.React.DOM (El)
+import Data.Argonaut (class DecodeJson, Json, JsonDecodeError)
 import Data.Default (def)
+import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn1, Fn2, Fn4, runFn1, runFn2, runFn4)
 import Effect (Effect)
 import React.SyntheticEvent (SyntheticMouseEvent, SyntheticWheelEvent)
+import Unsafe.Coerce (unsafeCoerce)
 
 foreign import data Context2d :: Type
 
+instance showCtx :: Show Context2d where
+  show = showContext2d
+
 foreign import data GeometryCache :: Type
+
+instance showCache :: Show GeometryCache where
+  show = showGeometryCache
+
+instance decodeJsonCache :: DecodeJson GeometryCache where
+  decodeJson = Right <<< unsafeCoerce
 
 foreign import emptyGeometryCache :: Effect GeometryCache
 
@@ -42,6 +54,9 @@ foreign import startMorphismImpl :: Fn2 GeometryCache Int GeometryCache
 foreign import startDraggingImpl :: Fn2 GeometryCache Int GeometryCache
 foreign import startComposingImpl :: Fn2 GeometryCache Int GeometryCache
 foreign import stopDraggingImpl :: Fn1 GeometryCache GeometryCache
+foreign import showGeometryCache :: Fn1 GeometryCache String
+foreign import showContext2d :: Fn1 Context2d String
+foreign import decodeJsonGeometryCache :: Fn1 Json (Either JsonDecodeError GeometryCache)
 
 -- | Purescript functions which run the foreign functions.
 createForeignObject :: GeometryCache -> Int -> Int -> String -> GeometryCache

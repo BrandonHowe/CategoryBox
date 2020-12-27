@@ -27,10 +27,10 @@ replaceCategoryObjects category replacements = category
     updatedObjects cat repl = (\x -> fromMaybe x (findMatchingReplacement repl $ unwrap x)) <$> cat.objects
 
     updatedMorphisms :: Category -> ObjectReplacements -> Array Morphism
-    updatedMorphisms cat repl = (\(Morphism x) -> Morphism $ x 
+    updatedMorphisms cat repl = cat.morphisms <#> \x -> x
       { from = fromMaybe x.from (findMatchingReplacement repl $ unwrap x.from)
       , to = fromMaybe x.to (findMatchingReplacement repl $ unwrap x.to) 
-      } ) <$> cat.morphisms
+      }
 
 -- | Given two categories, decide if they are equivalent.
 categoriesEquivalent :: Category -> Category -> Boolean
@@ -57,8 +57,8 @@ categoriesEquivalent c d = foldl (\acc cur -> acc || categoriesEqual cur d) fals
     morphismsEqual :: Tuple Morphism Morphism -> Boolean
     morphismsEqual t = m1.from == m2.from && m1.to == m2.to
       where
-        m1 = (fst >>> unwrap) t
-        m2 = (snd >>> unwrap) t
+        m1 = fst t
+        m2 = snd t
 
     categoriesEqual :: Category -> Category -> Boolean
     categoriesEqual cat1 cat2 = cat1.objects == cat2.objects && not (foldl (\acc cur -> acc || not morphismsEqual cur) false (zip cat1.morphisms cat2.morphisms))

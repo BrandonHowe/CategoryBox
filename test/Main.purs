@@ -7,8 +7,11 @@ import Prelude
 
 import CategoryBox.Data.CategoryEquivalence (categoriesEquivalent)
 import CategoryBox.Helpers.CantorPairing (invertCantorPairing)
+import CategoryBox.Tutorials.GetTutorial (Tutorial, getTutorialFromURL)
 import Data.Bifunctor (bimap)
+import Data.Either (Either)
 import Effect (Effect)
+import Effect.Aff (Aff, launchAff_)
 import Effect.Console (logShow)
 
 main :: Effect Unit
@@ -23,6 +26,7 @@ main = do
   logShow $ createFunctor cat1 cat2 "G" false
   logShow $ createFunctorAutomatic cat1 "F" false myWorld
   logShow $ bimap (mul 100) (mul 100) $ invertCantorPairing 4
+  launchAff_ tutorials
   where
     myObject1 = Object "Blah"
     myObject2 = Object "5"
@@ -53,4 +57,8 @@ main = do
       , morphisms: [ myMorphism1, myMorphism5 ]
       , name: "D"
       }
-    myWorld = { categories: [ cat1, cat3 ], functors: [] }
+    myWorld = { categories: [ cat1, cat3 ], functors: [], name: "myWorld" }
+
+tutorials :: Aff (Either String Tutorial)
+tutorials = do
+  getTutorialFromURL "https://gist.github.com/xWafl/b4541d2c738fd8726287cec39e0255a4"

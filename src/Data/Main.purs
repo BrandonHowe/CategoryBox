@@ -13,14 +13,14 @@ import Partial.Unsafe (unsafePartial)
 
 -- | Given two objects and a name, create a morphism
 createMorphism :: Object -> Object -> String -> Morphism
-createMorphism a b name = Morphism ({ from: a, to: b, name: name })
+createMorphism a b name = { from: a, to: b, name: name }
 
 -- | Compose two morphisms with <<<
 -- | ```purescript
--- | composeMorphisms (Morphism ({ from: b, to: c })) (Morphism ({ from: a, to: b })) == Morphism ({ from: a, to: c })
+-- | composeMorphisms { from: b, to: c } { from: a, to: b } == { from: a, to: c }
 -- | ````
 composeMorphisms :: Morphism -> Morphism -> Maybe Morphism
-composeMorphisms (Morphism f) (Morphism g) = if f.to == g.from then Just (Morphism { from: f.from, to: g.to, name: f.name <> " o " <> g.name }) else Nothing
+composeMorphisms f g = if f.to == g.from then Just { from: f.from, to: g.to, name: f.name <> " o " <> g.name } else Nothing
 
 -- | Empty category with a blank name
 emptyCategory :: Category
@@ -41,7 +41,7 @@ createFunctorAutomatic c name contra world = world { categories = snoc world.cat
     newCategory :: Category
     newCategory =
       { objects: c.objects <#> convertObject
-      , morphisms: c.morphisms <#> over Morphism (\x -> (under Morphism (flip flipContra contra) x) { from = convertObject x.from, to = convertObject x.to, name = name <> "(" <> x.name <> ")" })
+      , morphisms: c.morphisms <#> \x -> flip flipContra contra x { from = convertObject x.from, to = convertObject x.to, name = name <> "(" <> x.name <> ")" }
       , name: name <> "(" <> c.name <> ")"
       }
 
@@ -49,11 +49,12 @@ createFunctorAutomatic c name contra world = world { categories = snoc world.cat
     newFunctor :: CFunctor
     newFunctor = unsafePartial $ fromJust $ createFunctor c newCategory name contra
 
+    -- | Flip morphism if contravariant
     flipContra :: Morphism -> Boolean -> Morphism
-    flipContra f con = Morphism $ (unwrap f) { from = if con then to else from, to = if con then from else to }
+    flipContra f con = f { from = if con then to else from, to = if con then from else to }
       where
-        to = unwrap >>> _.to $ f
-        from = unwrap >>> _.from $ f
+        to = _.to $ f
+        from = _.from $ f
 
     convertObject :: Object -> Object
     convertObject = over Object (\x -> name <> "(" <> x <> ")")
@@ -72,13 +73,13 @@ getFunctorCategory world = {
 -- | Given a category and two objects, decide if the morphism between the two objects is in the category.
 isMorphismInCategory :: Category -> Maybe Object -> Maybe Object -> Boolean
 isMorphismInCategory _ Nothing Nothing = true
-isMorphismInCategory category (Just f) Nothing = foldl (\m (Morphism n) -> m || n.from == f) false category.morphisms
-isMorphismInCategory category Nothing (Just g) = foldl (\m (Morphism n) -> m || n.to == g) false category.morphisms
-isMorphismInCategory category (Just f) (Just g) = foldl (\m (Morphism n) -> m || n.from == f && n.to == g) false category.morphisms
+isMorphismInCategory category (Just f) Nothing = foldl (\m n -> m || n.from == f) false category.morphisms
+isMorphismInCategory category Nothing (Just g) = foldl (\m n -> m || n.to == g) false category.morphisms
+isMorphismInCategory category (Just f) (Just g) = foldl (\m n -> m || n.from == f && n.to == g) false category.morphisms
 
 -- | See if a morphism is an endomorphism.
 isEndomorphism :: Morphism -> Boolean
-isEndomorphism (Morphism m) = m.from == m.to
+isEndomorphism m = m.from == m.to
 
 -- | See if morphism is identity morphism.
 isIdentity :: Morphism -> Boolean
@@ -91,7 +92,7 @@ isRetraction :: Morphism -> Morphism -> Boolean
 isRetraction f g = fromMaybe false (isIdentity <$> f `composeMorphisms` g)
 
 isIsomorphism :: Morphism -> Category -> Boolean
-isIsomorphism (Morphism m) category = isMorphismInCategory category (Just $ m.to) (Just $ m.from)
+isIsomorphism m category = isMorphismInCategory category (Just $ m.to) (Just $ m.from)
 
 isAutomorphism :: Morphism -> Category -> Boolean
 isAutomorphism f category = isIsomorphism f category && isEndomorphism f
