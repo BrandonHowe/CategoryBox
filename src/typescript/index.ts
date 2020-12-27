@@ -172,6 +172,7 @@ export const onMouseMove = (
 
     if (cache.dragging) {
         const targets = getAllTargets(mouse, cache);
+        cache.morphismStart = undefined;
         if (target.type === MouseTargetKind.Object && targets.some(l => l.type === MouseTargetKind.Object && l.target !== cache.dragging)) {
             const nonDraggingTarget = targets.find(l => l.type === MouseTargetKind.Object && l.target !== cache.dragging) as { type: MouseTargetKind.Object, target: ObjectGeometry };
             const angleRad = Math.atan2(mouse[1] - nonDraggingTarget.target.position[1], mouse[0] - nonDraggingTarget.target.position[0]);
@@ -307,9 +308,13 @@ export const onMouseDown = (
             render(ctx)(cache);
             return () => config.getObjectName(mousePosition[0], mousePosition[1]);
         } else if (target?.type === MouseTargetKind.Object) {
+            console.log("clicking an object");
             if (cache.morphismStart) {
+                console.log("clicked AND we have a morphism")
                 render(ctx)(cache);
                 return () => config.getMorphismName(cache.objects.indexOf(cache.morphismStart!), cache.objects.indexOf(target.target));
+            } else {
+                cache.morphismStart = target.target;
             }
         } else if (target?.type === MouseTargetKind.Morphism) {
             if (cache.composing) {
