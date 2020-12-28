@@ -158,6 +158,7 @@ export const onMouseMove = (
         target.target.shape.attribs!.fill = "#999";
     }
     if (target.type === MouseTargetKind.Morphism && !cache.dragging) {
+        console.log("Hovering over a morphism");
         target.target.shape.attribs!.weight = 3;
         target.target.arrowhead1.attribs!.weight = 3;
         target.target.arrowhead2.attribs!.weight = 3;
@@ -310,15 +311,19 @@ export const onMouseDown = (
         } else if (target?.type === MouseTargetKind.Object) {
             console.log("clicking an object");
             if (cache.morphismStart) {
-                console.log("clicked AND we have a morphism")
+                console.log("clicked AND we have a morphism");
+                const matchingObject = cache.objects.indexOf(cache.morphismStart!);
+                delete cache.morphismStart;
                 render(ctx)(cache);
-                return () => config.getMorphismName(cache.objects.indexOf(cache.morphismStart!), cache.objects.indexOf(target.target));
+                return () => config.getMorphismName(matchingObject, cache.objects.indexOf(target.target));
             } else {
                 cache.morphismStart = target.target;
             }
         } else if (target?.type === MouseTargetKind.Morphism) {
             if (cache.composing) {
-                return () => config.getCompositionName(cache.morphisms.indexOf(cache.composing!), cache.morphisms.indexOf(target.target));
+                const matchingMorphism = cache.morphisms.indexOf(cache.composing!);
+                delete cache.composing;
+                return () => config.getCompositionName(matchingMorphism, cache.morphisms.indexOf(target.target));
             } else {
                 cache.composing = target.target;
             }

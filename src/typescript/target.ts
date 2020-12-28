@@ -53,7 +53,7 @@ export const getMouseTarget = (
         }
     }
     {
-        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.filter(l => l instanceof Line).map(l => ({ geometry: l, closest: closestPoint(l.shape, mousePosition)! })));
+        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.map(l => ({ geometry: l, closest: closestPoint(l.shape, mousePosition)! })));
 
         if (closestMorphism && distanceToMouse(closestMorphism.closest) < 10) {
             return {

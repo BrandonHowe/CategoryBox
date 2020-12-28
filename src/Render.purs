@@ -240,7 +240,7 @@ canvasComponent world st = do
   -- | Get the new state after handling any DOM actions.
   newState <- liftEffect $ handleAction st event canvasRef
 
-  -- _ <- liftEffect $ logShow { world, st }
+  -- _ <- liftEffect $ logShow world
 
   -- | Render the next version of the component.
   fromMaybe (canvasComponent world st) $ newState <#> \passedState -> case passedState of
