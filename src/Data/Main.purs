@@ -20,7 +20,7 @@ createMorphism a b name = { from: a, to: b, name: name }
 -- | composeMorphisms { from: b, to: c } { from: a, to: b } == { from: a, to: c }
 -- | ````
 composeMorphisms :: Morphism -> Morphism -> Maybe Morphism
-composeMorphisms f g = if f.to == g.from then Just { from: f.from, to: g.to, name: f.name <> " o " <> g.name } else Nothing
+composeMorphisms g f = if f.to == g.from then Just { from: f.from, to: g.to, name: f.name <> " o " <> g.name } else Nothing
 
 -- | Empty category with a blank name
 emptyCategory :: Category
