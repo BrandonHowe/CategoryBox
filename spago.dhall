@@ -16,6 +16,8 @@ You can edit this file as you like.
   , "numbers"
   , "psci-support"
   , "quickcheck"
+  , "routing"
+  , "routing-duplex"
   , "tuples"
   , "undefined"
   ]

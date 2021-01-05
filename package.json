@@ -11,8 +11,11 @@
     "@thi.ng/rstream": "^5.0.6",
     "@thi.ng/scenegraph": "^0.3.8",
     "@thi.ng/vectors": "^4.7.0",
+    "marked": "^1.2.7",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
+    "react-markdown": "^5.0.3",
+    "react-router-dom": "^5.2.0",
     "src": "^1.1.2"
   },
   "devDependencies": {

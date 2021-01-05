@@ -152,8 +152,9 @@ handleForeignAction world geom action = case action of
     updateGeometryState :: GeometryCache -> GeometryState -> GeometryState
     updateGeometryState cache state = state { geometryCaches = fromMaybe state.geometryCaches (updateAt (state.currentCategory - 1) cache state.geometryCaches) }
 
-render :: Effect Unit
-render = runWidgetInDom "app" $ canvasComponent defaultWorld defaultState
+-- | Empty canvas component with functor category baked in
+defaultCanvasComponent :: forall a. Widget HTML a
+defaultCanvasComponent = canvasComponent defaultWorld defaultState
   where
     functorCategory :: GeometryCache
     functorCategory = createForeignObject (unsafePerformEffect emptyGeometryCache) 0 0 "id Category 1"
@@ -169,6 +170,13 @@ render = runWidgetInDom "app" $ canvasComponent defaultWorld defaultState
                    , currentCategory: 0 
                    }
 
+errorComponent :: String -> forall a. Widget HTML a
+errorComponent str = D.h1 [] [ D.text str ]
+
+-- | Render `defaultCanvasComponent` on the div with the `app` id.
+render :: Effect Unit
+render = runWidgetInDom "app" defaultCanvasComponent
+    
 -- | Run a computation which requires access to a canvas rendering context.
 withContext :: forall a. Ref NativeNode -> (Context2d -> Effect a) -> Effect (Maybe a)
 withContext ref comp = do
