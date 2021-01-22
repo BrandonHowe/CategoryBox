@@ -2,8 +2,9 @@ import {
     arc,
     asCubic,
     Circle,
-    circle, line, pathFromCubics, text,
+    circle, Line, line, Path, pathFromCubics, text, Text as GText, Arc
 } from "@thi.ng/geom";
+import { fromEndPoints } from "@thi.ng/geom-arc"
 import { draw } from "@thi.ng/hiccup-canvas";
 import {
     concat,
@@ -13,7 +14,8 @@ import {
     translation23,
     Mat23Like
 } from "@thi.ng/matrices";
-import { Vec } from "@thi.ng/vectors";
+import { dist, Vec } from "@thi.ng/vectors";
+import { getArcMidpointOffset, getTangentAtArcAngle } from "./helpers/arc";
 import { objectWithinRadius } from './helpers/objectWithinRadius';
 import { isPressed, MouseButtons } from './mouse';
 import { getAllTargets, getMouseTarget, MouseTarget, MouseTargetKind } from "./target";
@@ -27,6 +29,8 @@ const H = window.innerHeight / 2 - 3;
 export const emptyGeometryCache = (): GeometryCache => ({
     objects: [],
     morphisms: [],
+    naturalMorphisms: new Map(),
+    morphisms2: [],
     camera: transform23(null, [0, 0], 0, 1) as Mat23Like
 });
 
@@ -151,7 +155,23 @@ export const onMouseMove = (
     cache.morphisms.map(l => {
         l.arrowhead1.attribs!.weight = 1
         l.arrowhead2.attribs!.weight = 1
-        l.shape.attribs!.weight = 1
+        if (l.shape instanceof Line) {
+            l.shape.attribs!.weight = 1;
+        } else if (l.shape instanceof Arc) {
+            l.arcAttributes!.weight = 1;
+        }
+    });
+    
+    cache.naturalMorphisms.forEach(l => {
+        l.map(j => {
+            j.arrowhead1.attribs!.weight = 1;
+            j.arrowhead2.attribs!.weight = 1;
+            if (j.shape instanceof Line) {
+                j.shape.attribs!.weight = 1;
+            } else if (j.shape instanceof Arc) {
+                j.arcAttributes!.weight = 1;
+            }
+        });
     });
 
     if (target.type === MouseTargetKind.Object && !cache.dragging) {
@@ -159,7 +179,12 @@ export const onMouseMove = (
     }
     if (target.type === MouseTargetKind.Morphism && !cache.dragging) {
         console.log("Hovering over a morphism");
-        target.target.shape.attribs!.weight = 3;
+        if (target.target.shape instanceof Line) {
+            target.target.shape.attribs!.weight = 3;
+        } else if (target.target.shape instanceof Arc) {
+            console.log("Hovering over an arc cuh");
+            target.target.arcAttributes!.weight = 3;
+        }
         target.target.arrowhead1.attribs!.weight = 3;
         target.target.arrowhead2.attribs!.weight = 3;
     }
@@ -188,11 +213,16 @@ export const onMouseMove = (
         }
         cache.morphisms.map(l => {
             const matchingIsomorphism = cache.morphisms.some(j => j.from === l.to && j.to === l.from);
-            const { arrowhead1, arrowhead2, shape } = getMorphismShapes(l.from, l.to, matchingIsomorphism);
+            const { arrowhead1, arrowhead2, shape, text } = getMorphismShapes(l.from, l.to, matchingIsomorphism, l.name);
             l.arrowhead1 = arrowhead1;
             l.arrowhead2 = arrowhead2;
             l.shape = shape;
+            l.text = text;
         });
+        const matchingNaturals = [...cache.naturalMorphisms.entries()].find(l => l[0].from === cache.dragging!.shape || l[0].to === cache.dragging!.shape);
+        if (matchingNaturals) {
+            cache.naturalMorphisms.set(matchingNaturals[0], getNaturalMorphismShapes(matchingNaturals[1].map(l => ({ from: l.from, to: l.to, name: l.name }))));
+        }
     }
 
     return () => config.nothing;
@@ -208,7 +238,15 @@ export const createObject = (cache: GeometryCache, posX: number, posY: number, n
     return cache;
 }
 
-const getMorphismShapes = (from: Circle, to: Circle, isomorphismExists: boolean): Pick<MorphismGeometry, "arrowhead1" | "arrowhead2" | "shape"> => {
+const getTextLocation = (l: Pick<MorphismGeometry, "from" | "to" | "name">, attribs = { fill: "#000", align: "center", background: "#fff" }) => {
+    const angle = (Math.atan2(l.to.pos[1] - l.from.pos[1], l.to.pos[0] - l.from.pos[0]) * (180 / Math.PI) + 360) % 360;
+    const midpoint = [(l.from.pos[0] + l.to.pos[0]) / 2, (l.from.pos[1] + l.to.pos[1]) / 2];
+    const modifiedAngle = (angle + 270) % 360;
+    const textPos = [midpoint[0] + (20 * Math.cos(modifiedAngle * Math.PI / 360)), midpoint[1] + (20 * Math.sin(modifiedAngle * Math.PI / 360))];
+    return text(textPos, l.name, attribs);
+};
+
+const getMorphismShapes = (from: Circle, to: Circle, isomorphismExists: boolean, name: string): Pick<MorphismGeometry, "arrowhead1" | "arrowhead2" | "shape" | "text"> => {
     if (from !== to) {
         const angle = (Math.atan2(to.pos[1] - from.pos[1], to.pos[0] - from.pos[0]) * (180 / Math.PI) + 360) % 360;
         const modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
@@ -224,7 +262,8 @@ const getMorphismShapes = (from: Circle, to: Circle, isomorphismExists: boolean)
         return {
             arrowhead1,
             arrowhead2,
-            shape
+            shape,
+            text: getTextLocation({ from, to, name })
         };
     } else {
         const morphismArc = arc([from.pos[0], from.pos[1] - 15], 10, Math.PI / 2 + 1, 0, Math.PI * 2 - 2);
@@ -235,32 +274,176 @@ const getMorphismShapes = (from: Circle, to: Circle, isomorphismExists: boolean)
         const arrowheadPoint2 = [endpoint[0] + 8 * Math.cos(Math.PI / 2 - 1 + rotationFactor), endpoint[1] + 8 * Math.sin(Math.PI / 2 - 1 + rotationFactor)];
         const arrowhead1 = line(endpoint, arrowheadPoint1, { weight: 1, stroke: "#000" });
         const arrowhead2 = line(endpoint, arrowheadPoint2, { weight: 1, stroke: "#000" });
-        const shape = pathFromCubics(asCubic(morphismArc), { weight: 1, stroke: "#000" });
+        const shape = morphismArc;
+        const textPos = [from.pos[0], from.pos[1] - 30];
         return {
             arrowhead1,
             arrowhead2,
-            shape
+            shape,
+            text: text(textPos, name, { fill: "#000", align: "center", background: "#fff" })
         };
     }
+};
+
+export const filterNaturalMorphisms = (morphisms: MorphismGeometry[]) => {
+    const naturals: Map<{from: Circle, to: Circle}, string[]> = new Map();
+    for (const morphism of morphisms) {
+        if (morphisms.filter(l => l.to === morphism.to && l.from === morphism.from).length >= 2) {
+            const matchingNatural = [...naturals.keys()].find(l => l.to === morphism.to && l.from === morphism.from);
+            if (matchingNatural) {
+                const matchingArr = naturals.get(matchingNatural)!;
+                naturals.set(matchingNatural, matchingArr.length % 2 === 0 ? [morphism.name, ...matchingArr] : [...matchingArr, morphism.name]);
+            } else {
+                naturals.set({ from: morphism.from, to: morphism.to }, [morphism.name]);
+            }
+        }
+    }
+    return {
+        duplicates: [...naturals.entries()].map(l => l[1].map(j => ({ ...l[0], name: j }))),
+        regulars: morphisms.filter(morphism => morphisms.filter(l => l.to === morphism.to && l.from === morphism.from).length <= 1)
+    };
+};
+
+export const getNaturalMorphismShapes = (morphisms: { from: Circle, to: Circle, name: string }[]): MorphismGeometry[] => {
+    return morphisms.map((l, idx): MorphismGeometry => {
+        const currIdx = idx - Math.ceil(morphisms.length / 2);
+        const toPos = l.from.pos;
+        const fromPos = l.to.pos;
+        const distBetweenPos = dist(toPos, fromPos);
+        if (currIdx >= 0) {
+            const templateAngle = Math.atan2(toPos[1] - fromPos[1], toPos[0] - fromPos[0]);
+            const templateArcData = fromEndPoints(fromPos, toPos, [distBetweenPos, (currIdx + 1) * 300], templateAngle)!;
+            const offsetStartAngle = Math.atan2(getTangentAtArcAngle(arc(templateArcData.center!, templateArcData.r, templateArcData.axis, templateArcData.start, templateArcData.end), templateArcData.start), 1);
+            const offsetEndAngle = Math.atan2(getTangentAtArcAngle(arc(templateArcData.center!, templateArcData.r, templateArcData.axis, templateArcData.start, templateArcData.end), templateArcData.end), 1);
+            const startCoords = [Math.cos, Math.sin].map(l => l(offsetStartAngle + (templateAngle + Math.PI) % (Math.PI * 2)) * 15).map((j, idx) => fromPos[idx] - j);
+            const endCoords = [Math.cos, Math.sin].map(l => l(offsetEndAngle + (templateAngle + Math.PI) % (Math.PI * 2)) * 15).map((j, idx) => toPos[idx] + j);
+            const arcData = fromEndPoints(startCoords, endCoords, [dist(startCoords, endCoords), (currIdx + 1) * 300], templateAngle)!;
+            const shape = arc(arcData.center!, arcData.r, arcData.axis, arcData.start, arcData.end);
+            const newStartAngle = Math.atan2(getTangentAtArcAngle(arc(arcData.center!, arcData.r, arcData.axis, arcData.start, arcData.end), arcData.start), 1) + templateAngle % (Math.PI * 2);
+            const arrowhead1Coords = [startCoords[0] + Math.cos(newStartAngle + (7 * Math.PI / 4) % (2 * Math.PI)) * 10, startCoords[1] + Math.sin(newStartAngle + (7 * Math.PI / 4) % (2 * Math.PI)) * 10];
+            const arrowhead2Coords = [startCoords[0] + Math.cos(newStartAngle + (1 * Math.PI / 4) % (2 * Math.PI)) * 10, startCoords[1] + Math.sin(newStartAngle + (1 * Math.PI / 4) % (2 * Math.PI)) * 10];
+            const arrowhead1 = line(startCoords, arrowhead1Coords, { weight: 1, stroke: "#000" });
+            const arrowhead2 = line(startCoords, arrowhead2Coords, { weight: 1, stroke: "#000" });
+            const textPos = getArcMidpointOffset(arc(arcData.center!, arcData.r, arcData.axis, arcData.start, arcData.end), -10);
+            return {
+                id: 0,
+                from: l.from,
+                to: l.to,
+                shape,
+                arrowhead1,
+                arrowhead2,
+                name: l.name,
+                arcAttributes: { weight: 1, stroke: "#000" },
+                text: text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" })
+            }
+        } else if (currIdx === -1) {
+            const templateAngle = Math.atan2(toPos[1] - fromPos[1], toPos[0] - fromPos[0]);
+            const startCoords = [Math.cos, Math.sin].map(l => l(templateAngle) * 15).map((j, idx) => fromPos[idx] + j);
+            const endCoords = [Math.cos, Math.sin].map(l => l((templateAngle + Math.PI) % (Math.PI * 2)) * 15).map((j, idx) => toPos[idx] + j);
+            const shape = line(startCoords, endCoords, { weight: 1, stroke: "#000" });
+            const arrowhead1Coords = [startCoords[0] + Math.cos(templateAngle + (7 * Math.PI / 4) % (2 * Math.PI)) * 10, startCoords[1] + Math.sin(templateAngle + (7 * Math.PI / 4) % (2 * Math.PI)) * 10];
+            const arrowhead2Coords = [startCoords[0] + Math.cos(templateAngle + (1 * Math.PI / 4) % (2 * Math.PI)) * 10, startCoords[1] + Math.sin(templateAngle + (1 * Math.PI / 4) % (2 * Math.PI)) * 10];
+            const arrowhead1 = line(startCoords, arrowhead1Coords, { weight: 1, stroke: "#000" });
+            const arrowhead2 = line(startCoords, arrowhead2Coords, { weight: 1, stroke: "#000" });
+            return {
+                id: 0,
+                from: l.from,
+                to: l.to,
+                shape,
+                arrowhead1,
+                arrowhead2,
+                name: l.name,
+                text: getTextLocation(l)
+            }
+        } else {
+            const templateAngle = Math.atan2(toPos[1] - fromPos[1], toPos[0] - fromPos[0]); 
+            const templateArcData = fromEndPoints(fromPos, toPos, [distBetweenPos, (currIdx * -1 - 1) * 300], templateAngle)!;
+            const offsetStartAngle = Math.atan2(getTangentAtArcAngle(arc(templateArcData.center!, templateArcData.r, templateArcData.axis, templateArcData.start, templateArcData.end), templateArcData.start), 1) * -1;
+            const offsetEndAngle = Math.atan2(getTangentAtArcAngle(arc(templateArcData.center!, templateArcData.r, templateArcData.axis, templateArcData.start, templateArcData.end), templateArcData.end), 1) * -1;
+            const startCoords = [Math.cos, Math.sin].map(l => l(offsetStartAngle + (templateAngle + Math.PI) % (Math.PI * 2)) * 15).map((j, idx) => fromPos[idx] - j);
+            const endCoords = [Math.cos, Math.sin].map(l => l(offsetEndAngle + (templateAngle + Math.PI) % (Math.PI * 2)) * 15).map((j, idx) => toPos[idx] + j);
+            const arcData = fromEndPoints(startCoords, endCoords, [dist(startCoords, endCoords), (currIdx * -1 - 1) * 300], templateAngle, false, true)!;
+            const shape = arc(arcData.center!, arcData.r, arcData.axis, arcData.start, arcData.end);
+            const newStartAngle = Math.atan2(getTangentAtArcAngle(arc(arcData.center!, arcData.r, arcData.axis, arcData.start, arcData.end), arcData.start), 1) + templateAngle % (Math.PI * 2);
+            const arrowhead1Coords = [startCoords[0] + Math.cos(newStartAngle + (7 * Math.PI / 4) % (2 * Math.PI)) * 10, startCoords[1] + Math.sin(newStartAngle + (7 * Math.PI / 4) % (2 * Math.PI)) * 10];
+            const arrowhead2Coords = [startCoords[0] + Math.cos(newStartAngle + (1 * Math.PI / 4) % (2 * Math.PI)) * 10, startCoords[1] + Math.sin(newStartAngle + (1 * Math.PI / 4) % (2 * Math.PI)) * 10];
+            const arrowhead1 = line(startCoords, arrowhead1Coords, { weight: 1, stroke: "#000" });
+            const arrowhead2 = line(startCoords, arrowhead2Coords, { weight: 1, stroke: "#000" });
+            const textPos = getArcMidpointOffset(arc(arcData.center!, arcData.r, arcData.axis, arcData.start, arcData.end), -10);
+            return {
+                id: 0,
+                from: l.from,
+                to: l.to,
+                shape,
+                arrowhead1,
+                arrowhead2,
+                name: l.name,
+                arcAttributes: { weight: 1, stroke: "#000" },
+                text: text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" })
+            }
+        }
+    });
+};
+
+// const getMorphism2Shapes = (from: MorphismGeometry, to: MorphismGeometry): Pick<MorphismGeometry, "arrowhead1" | "arrowhead2" | "shape"> => {
+//     if (from !== to) {
+//         const midpoint1 = getMidpointOfMorphism(from);
+//         const midpoint2 = getMidpointOfMorphism(to);
+//         const angle = (Math.atan2(midpoint2[1] - midpoint1[1], midpoint2[0] - midpoint1[0]) * (180 / Math.PI) + 360) % 360;
+//         const modifiedYDist = Math.sin(angle * Math.PI / 180) * 20;
+//         const modifiedXDist = Math.cos(angle * Math.PI / 180) * 20;
+//         const newEndpoint = [to.pos[0] - modifiedXDist + isomorphismModifierX, to.pos[1] - modifiedYDist + isomorphismModifierY];
+//         const arrowheadPoint1 = [newEndpoint[0] - Math.cos((angle + 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle + 45) * Math.PI / 180) * 10];
+//         const arrowheadPoint2 = [newEndpoint[0] - Math.cos((angle - 45) * Math.PI / 180) * 10, newEndpoint[1] - Math.sin((angle - 45) * Math.PI / 180) * 10];
+//         const arrowhead1 = line(newEndpoint, arrowheadPoint1, {});
+//         const arrowhead2 = line(newEndpoint, arrowheadPoint2, {});
+//         const shape = line([from.pos[0] + modifiedXDist + isomorphismModifierX, from.pos[1] + modifiedYDist + isomorphismModifierY], newEndpoint, { weight: 1 });
+//         return {
+//             arrowhead1,
+//             arrowhead2,
+//             shape
+//         };
+//     }
+// };
+
+const getMidpointOfMorphism = (morphism: MorphismGeometry): [number, number] => {
+    const e1 = morphism.from.pos;
+    const e2 = morphism.from.pos;
+    return [(e1[0] + e2[0]) / 2, (e1[1] + e2[1]) / 2] as [number, number];
 };
 
 export const createMorphism = (cache: GeometryCache, idx1: number, idx2: number, name: string): GeometryCache => {
     console.log("Creating morphism");
     const from = cache.objects[idx1];
     const to = cache.objects[idx2];
-    const { arrowhead1, arrowhead2, shape } = getMorphismShapes(from.shape, to.shape, false);
+    const { arrowhead1, arrowhead2, shape, text } = getMorphismShapes(from.shape, to.shape, false, name);
     cache.morphisms.push({
-        id: cache.objects.length + 1,
+        id: cache.morphisms.length + 1,
         from: cache.objects[idx1].shape,
         to: cache.objects[idx2]!.shape,
         name,
         arrowhead1,
         arrowhead2,
-        shape
+        shape,
+        text
     });
+    const matchingNaturalArr = ([...cache.naturalMorphisms.entries()].find(l => l[0].from === from.shape && l[0].to === to.shape) || [[], [] as MorphismGeometry[]])[1];
+    const filteredNaturalMorphisms = filterNaturalMorphisms([...new Set([...cache.morphisms, ...matchingNaturalArr])]);
+    const matchingNaturals = filteredNaturalMorphisms.duplicates.find(l => l[0].from === from.shape && l[0].to === to.shape);
+    const matchingNaturalGeoms = matchingNaturals && getNaturalMorphismShapes(matchingNaturals);
+    console.log(matchingNaturalGeoms);
     delete cache.morphismStart;
-    if (cache.composing) {
-        delete cache.composing;
+    delete cache.composing;
+    if (matchingNaturalGeoms) {
+        cache.morphisms.pop();
+        cache.morphisms = cache.morphisms.filter(l => l.from !== from.shape || l.to !== to.shape);
+        for (const natMorSet of cache.naturalMorphisms.entries()) {
+            if (natMorSet[0].from === from.shape && natMorSet[0].to === to.shape) {
+                cache.naturalMorphisms.set(natMorSet[0], matchingNaturalGeoms);
+                return cache;
+            }
+        }
+        cache.naturalMorphisms.set({ from: from.shape, to: to.shape }, matchingNaturalGeoms);
     }
     return cache;
 }
@@ -379,33 +562,38 @@ export const onScroll = (
 };
 
 export const render = (ctx: CanvasRenderingContext2D) => (cache: GeometryCache) => {
+    console.log("Rendering!");
     ctx.resetTransform();
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
     const matrix = getTransform(ctx, cache);
 
-    const objectsShapes = cache.objects.map(l => {
+    const objectsShapes = cache.objects.flatMap(l => {
         const modifiedPos = [l.position[0], l.position[1] + 20];
         return [l.shape, text(modifiedPos, l.name, { fill: "#000", align: "center" })];
-    }).flat();
-    const morphismShapes = cache.morphisms.map(l => {
+    });
+
+    const morphismShapes = cache.morphisms.flatMap(l => [l.shape, l.arrowhead1, l.arrowhead2, l.text]);
+
+    const filteredNaturalMorphisms = [...cache.naturalMorphisms.values()].flat();
+    const naturalMorphismShapes = filteredNaturalMorphisms.flatMap(l => [l.arrowhead1, l.arrowhead2, l.shape, l.text]);
+    const naturalMorphismRenders = filteredNaturalMorphisms.map(l => l.shape instanceof Arc ? pathFromCubics(asCubic(l.shape), l.arcAttributes) : l.shape);
+    const morphism2Shapes = cache.morphisms2.flatMap(l => {
         if (l.from !== l.to) {
-            const angle = (Math.atan2(l.to.pos[1] - l.from.pos[1], l.to.pos[0] - l.from.pos[0]) * (180 / Math.PI) + 360) % 360;
-            const midpoint = [(l.from.pos[0] + l.to.pos[0]) / 2, (l.from.pos[1] + l.to.pos[1]) / 2];
+            const midpoint1 = getMidpointOfMorphism(l.from);
+            const midpoint2 = getMidpointOfMorphism(l.to);
+            const angle = (Math.atan2(midpoint2[1] - midpoint1[1], midpoint2[0] - midpoint1[0]) * (180 / Math.PI) + 360) % 360;
             const modifiedAngle = (angle + 270) % 360;
-            const textPos = [midpoint[0] + (20 * Math.cos(modifiedAngle * Math.PI / 360)), midpoint[1] + (20 * Math.sin(modifiedAngle * Math.PI / 360))];
-            return [l.arrowhead1, l.arrowhead2, l.shape, text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" })];
-        } else {
-            const textPos = [l.from.pos[0], l.from.pos[1] - 30];
-            return [l.arrowhead1, l.arrowhead2, l.shape, text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" })]
+            const textPos = [midpoint1[0] + (20 * Math.cos(modifiedAngle * Math.PI / 360)), midpoint1[1] + (20 * Math.sin(modifiedAngle * Math.PI / 360))];
+            return [l.arrowhead1, l.arrowhead2, l.shape, l.shape2, text(textPos, l.name, { fill: "#000", align: "center", background: "#fff" })];
         }
-    }).flat();
-    const shapes = ["g", { transform: matrix }, ...objectsShapes, ...morphismShapes];
+    });
+    const shapes = ["g", { transform: matrix }, ...objectsShapes, ...morphismShapes, ...naturalMorphismShapes, ...naturalMorphismRenders, ...morphism2Shapes];
 
     draw(ctx, [shapes], {
         attribs: {},
         edits: []
     });
-
+    
     return () => {};
 };
