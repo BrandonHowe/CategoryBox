@@ -1,11 +1,10 @@
 module CategoryBox.Router where
 
-import CategoryBox.Render (defaultCanvasComponent)
+import CategoryBox.Render (localStorageCanvasComponent)
 import CategoryBox.Tutorials.Component (tutorialComponent)
 import CategoryBox.Tutorials.TutorialId (TutorialId(..))
 import Concur.Core (Widget)
 import Concur.React (HTML)
-import Concur.React.DOM as D
 import Control.Alt ((<|>))
 import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
@@ -42,5 +41,5 @@ tutorialId = as show (map TutorialId <<< Right)
 -- | Takes a route and returns the correct widget for that route.
 renderRouter :: forall a. Route -> Widget HTML a
 renderRouter route = case route of
-  Home -> defaultCanvasComponent
-  GoTutorial id -> defaultCanvasComponent <|> (tutorialComponent id *> defaultCanvasComponent)
+  Home -> localStorageCanvasComponent
+  GoTutorial id -> localStorageCanvasComponent <|> (tutorialComponent id *> localStorageCanvasComponent)

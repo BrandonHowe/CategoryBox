@@ -17,7 +17,6 @@ import Data.Semigroup (append)
 import Data.Tuple (Tuple(..), fst, snd)
 import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
-import Effect.Class.Console (log)
 
 type Tutorial =
   { name    :: String

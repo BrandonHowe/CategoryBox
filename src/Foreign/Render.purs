@@ -6,7 +6,7 @@ import CategoryBox.Foreign.ForeignAction (ForeignAction, ForeignActionConfig)
 import Concur.Core (Widget)
 import Concur.React (HTML)
 import Concur.React.DOM (El)
-import Data.Argonaut (class DecodeJson, Json, JsonDecodeError)
+import Data.Argonaut (class DecodeJson, class EncodeJson, Json, JsonDecodeError)
 import Data.Default (def)
 import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn1, Fn2, Fn4, runFn1, runFn2, runFn4)
@@ -19,13 +19,22 @@ foreign import data Context2d :: Type
 instance showCtx :: Show Context2d where
   show = showContext2d
 
+instance encodeContext2d :: EncodeJson Context2d where
+  encodeJson = unsafeCoerce
+
+instance decodeContext2d :: DecodeJson Context2d where
+  decodeJson = Right <<< unsafeCoerce
+
 foreign import data GeometryCache :: Type
 
 instance showCache :: Show GeometryCache where
   show = showGeometryCache
 
+instance encodeJsonCache :: EncodeJson GeometryCache where
+  encodeJson = unsafeCoerce <<< storeCache
+
 instance decodeJsonCache :: DecodeJson GeometryCache where
-  decodeJson = Right <<< unsafeCoerce
+  decodeJson = Right <<< decodeJsonGeometryCache
 
 foreign import emptyGeometryCache :: Effect GeometryCache
 
@@ -56,7 +65,8 @@ foreign import startComposingImpl :: Fn2 GeometryCache Int GeometryCache
 foreign import stopDraggingImpl :: Fn1 GeometryCache GeometryCache
 foreign import showGeometryCache :: Fn1 GeometryCache String
 foreign import showContext2d :: Fn1 Context2d String
-foreign import decodeJsonGeometryCache :: Fn1 Json (Either JsonDecodeError GeometryCache)
+foreign import storeCacheImpl :: Fn1 GeometryCache GeometryCache
+foreign import decodeJsonGeometryCache :: Fn1 Json GeometryCache
 
 -- | Purescript functions which run the foreign functions.
 createForeignObject :: GeometryCache -> Int -> Int -> String -> GeometryCache
@@ -88,6 +98,9 @@ handleMouseUp = runFn4 handleMouseUpImpl def
 
 handleScroll :: GeomWheelEventHandler
 handleScroll = runFn4 handleScrollImpl def
+
+storeCache :: GeometryCache -> GeometryCache
+storeCache = runFn1 storeCacheImpl
 
 foreign import resizeCanvas :: El -> Effect Unit
 

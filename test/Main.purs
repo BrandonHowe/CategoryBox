@@ -1,9 +1,9 @@
 module Test.Main where
 
-import CategoryBox.Data.Main
-import CategoryBox.Data.Types
-import Data.Maybe
-import Prelude
+import CategoryBox.Data.Main (composeMorphisms, createFunctor, createFunctorAutomatic, createMorphism, isIdentity, isMorphismInCategory)
+import CategoryBox.Data.Types (Object(..))
+import Data.Maybe (Maybe(..))
+import Prelude (Unit, discard, mul, ($), (<$>))
 
 import CategoryBox.Data.CategoryEquivalence (categoriesEquivalent)
 import CategoryBox.Helpers.CantorPairing (invertCantorPairing)
