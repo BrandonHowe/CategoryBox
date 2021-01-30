@@ -4,7 +4,9 @@ You can edit this file as you like.
 -}
 { name = "my-project"
 , dependencies =
-  [ "concur-react"
+  [ "affjax"
+  , "argonaut"
+  , "concur-react"
   , "console"
   , "data-default"
   , "effect"
@@ -13,7 +15,11 @@ You can edit this file as you like.
   , "nested-functor"
   , "numbers"
   , "psci-support"
+  , "quickcheck"
+  , "routing"
+  , "routing-duplex"
   , "tuples"
+  , "undefined"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]

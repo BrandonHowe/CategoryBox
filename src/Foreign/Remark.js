@@ -1,0 +1,1 @@
+exports.reactMarkdownImpl = require('react-markdown');

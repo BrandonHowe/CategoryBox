@@ -1,5 +1,7 @@
-import { closestPoint, pointInside } from "@thi.ng/geom";
+import { Arc, circle, closestPoint, Line, Path, pointInside } from "@thi.ng/geom";
+import { closestPoint as closestPointArc } from "@thi.ng/geom-arc";
 import { Vec, dist } from "@thi.ng/vectors"
+import { filterNaturalMorphisms, getMorphismShapes, getNaturalMorphismShapes } from ".";
 import { findLast } from "./helpers/findLast";
 import { minBy } from './helpers/minBy';
 import { MorphismGeometry } from './types/Morphism';
@@ -21,6 +23,14 @@ export type MouseTarget = {
     target: MorphismGeometry
 }
 
+const getClosestPoint = (shape: Line | Arc, mouse: Vec): Vec | undefined => {
+    if (shape instanceof Arc) {
+        return closestPointArc(mouse, shape.pos, shape.r, shape.axis, shape.start, shape.end);
+    } else {
+        return closestPoint(shape, mouse);
+    }
+};
+
 /**
  * Finds the object in the scene the mouse is hovering over
  *
@@ -40,10 +50,14 @@ export const getMouseTarget = (
     const distanceToMouse = (position: Vec) => dist(mousePosition, position);
 
     const objects = [...cache.objects];
-    const morphisms = [...cache.morphisms];
+    // const morphismShapes: (Line | Arc)[] = cache.morphisms.flatMap(l => ["arrowhead1", "arrowhead2", "shape"].map(j => getMorphismShapes(l)[j]));
+    // const filteredNaturalMorphisms = [...cache.naturalMorphisms.values()].flat();
+    // const naturalMorphismShapes: (Line | Arc)[] = filteredNaturalMorphisms.flatMap(l => ["arrowhead1", "arrowhead2", "shape"].map(j => getMorphismShapes(l)[j]));
+    // const morphisms = [...morphismShapes, ...naturalMorphismShapes];
+    const morphisms = [...cache.morphisms, ...[...cache.naturalMorphisms.values()].flat()];
 
     {
-        const closestObject = findLast(objects, node => pointInside(node.shape, mousePosition));
+        const closestObject = findLast(objects, node => pointInside(circle(node.position, 15), mousePosition));
 
         if (closestObject) {
             return {
@@ -53,7 +67,7 @@ export const getMouseTarget = (
         }
     }
     {
-        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.map(l => ({ geometry: l, closest: closestPoint(l.shape, mousePosition)! })));
+        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.map(l => ({ geometry: l, closest: getClosestPoint(getMorphismShapes(l).shape, mousePosition)! })));
 
         if (closestMorphism && distanceToMouse(closestMorphism.closest) < 10) {
             return {
@@ -85,12 +99,12 @@ export const getAllTargets = (
     const distanceToMouse = (position: Vec) => dist(mousePosition, position);
 
     const objects = [...cache.objects];
-    const morphisms = [...cache.morphisms];
+    const morphisms = [...cache.morphisms, ...[...cache.naturalMorphisms.values()].flat()];
 
     const output: MouseTarget[] = [];
 
     {
-        const closestObjects = objects.filter(node => pointInside(node.shape, mousePosition));
+        const closestObjects = objects.filter(node => pointInside(circle(node.position, 10), mousePosition));
 
         output.push(...closestObjects.map(l => ({
             type: MouseTargetKind.Object,
@@ -98,7 +112,7 @@ export const getAllTargets = (
         } as MouseTarget)));
     }
     {
-        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.map(l => ({ geometry: l, closest: closestPoint(l.shape, mousePosition)! })));
+        const closestMorphism = minBy((a, b) => distanceToMouse(a.closest) < distanceToMouse(b.closest), morphisms.map(l => ({ geometry: l, closest: getClosestPoint(getMorphismShapes(l).shape, mousePosition)! })));
 
         if (closestMorphism && distanceToMouse(closestMorphism.closest) < 10) {
             output.push({

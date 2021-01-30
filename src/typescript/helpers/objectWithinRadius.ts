@@ -6,7 +6,6 @@ export const objectWithinRadius = (
     radius: number,
     cache: GeometryCache
 ) => {
-    console.log(mousePosition);
     const distanceToMouse = (position: Vec) => dist(mousePosition, position);
 
     return cache.objects.reduce((acc, cur) => acc = distanceToMouse(cur.position) < radius, false);

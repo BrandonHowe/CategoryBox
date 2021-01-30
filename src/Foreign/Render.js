@@ -1,6 +1,7 @@
 const render = require("../../src/typescript/index.ts");
 
 exports.renderCanvas = render.render;
+exports.handleScrollImpl = render.onScroll;
 exports.handleMouseUpImpl = render.onMouseUp;
 exports.handleMouseDownImpl = render.onMouseDown;
 exports.handleMouseMoveImpl = render.onMouseMove;
@@ -23,3 +24,13 @@ exports.resizeCanvas = canvas => () => {
 
 // To be able to get contexts from purescript
 exports.getContext = canvas => () => canvas.getContext("2d");
+
+exports.storeCacheImpl = render.storeGeometryCache;
+
+// Show function for geometry caches
+exports.showGeometryCache = JSON.stringify;
+exports.showContext2d = JSON.stringify;
+exports.decodeJsonContext2d = JSON.parse;
+
+// Decode JSON into geometry cache
+exports.decodeJsonGeometryCache = render.deStoreGeometryCache;
