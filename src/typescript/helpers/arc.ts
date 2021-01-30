@@ -10,7 +10,6 @@ export const getTangentAtArcAngle = (arc: Arc, angle: number): number => {
     const startPos = [arc.r[0] * Math.cos(angle), arc.r[1] * Math.sin(angle)]; // Relative position of point on ellipse
     const v1 = (arc.r[1] / arc.r[0]) ** 2; // We know you always have to use the power rule here, so we can calulate a value that we need. The squared is because of the way the ellipse formula is made.
     const v2 = v1 * startPos[0] / startPos[1] * -1; // Get the slope based off of the derivative
-    // console.log(arc, angle, startPos, v1, v2);
     return v2;
 };
 
